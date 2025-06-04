@@ -194,6 +194,22 @@ def are_friends(user1, user2):
     return user2 in user1_friends['friends']
 
 def can_send_message(sender, recipient):
+    # Check if users are blocking each other
+    blocked_file = 'blocked_users.json'
+    if os.path.exists(blocked_file):
+        try:
+            with open(blocked_file, 'r', encoding='utf-8') as f:
+                blocked_users = json.load(f)
+            
+            # Check if sender blocked recipient or recipient blocked sender
+            sender_blocked = blocked_users.get(sender, [])
+            recipient_blocked = blocked_users.get(recipient, [])
+            
+            if recipient in sender_blocked or sender in recipient_blocked:
+                return False
+        except:
+            pass
+    
     users = load_users()
     recipient_data = users.get(recipient, {})
 
@@ -314,21 +330,47 @@ def nells():
     users = load_users()
     current_user = session.get('username', '')
     
+    # Load blocked users
+    blocked_file = 'blocked_users.json'
+    blocked_users = {}
+    if os.path.exists(blocked_file):
+        try:
+            with open(blocked_file, 'r', encoding='utf-8') as f:
+                blocked_users = json.load(f)
+        except:
+            blocked_users = {}
+
+    # Get list of users blocked by current user
+    blocked_by_me = blocked_users.get(current_user, []) if current_user else []
+    
+    # Get list of users who blocked current user
+    blocked_me = []
+    if current_user:
+        for blocker, blocked_list in blocked_users.items():
+            if current_user in blocked_list:
+                blocked_me.append(blocker)
+    
     # Gönderileri filtrele
     filtered_posts = []
     for post in posts:
+        post_author = post['username']
+        
+        # Skip posts from blocked users or users who blocked me
+        if current_user and (post_author in blocked_by_me or post_author in blocked_me):
+            continue
+            
         # Gönderi sahibinin gizlilik ayarlarını kontrol et
-        post_owner_data = users.get(post['username'], {})
+        post_owner_data = users.get(post_author, {})
         
         # Eğer kullanıcı gönderilerini herkesten gizlemeyi seçmişse ve kendi gönderisi değilse
-        if post_owner_data.get('hide_posts_from_everyone', False) and post['username'] != current_user:
+        if post_owner_data.get('hide_posts_from_everyone', False) and post_author != current_user:
             continue  # Bu gönderiyi gösterme
         
         # Eğer post public ise herkese göster
         if post.get('is_public', True):
             filtered_posts.append(post)
         # Eğer post private ise sadece arkadaşlara göster
-        elif current_user and are_friends(current_user, post['username']):
+        elif current_user and are_friends(current_user, post_author):
             filtered_posts.append(post)
     
     # Tarihe göre ters sırala (en yeni üstte)
@@ -549,8 +591,30 @@ def search_users():
     current_user = session['username']
     results = []
 
+    # Load blocked users
+    blocked_file = 'blocked_users.json'
+    blocked_users = {}
+    if os.path.exists(blocked_file):
+        try:
+            with open(blocked_file, 'r', encoding='utf-8') as f:
+                blocked_users = json.load(f)
+        except:
+            blocked_users = {}
+
+    # Get list of users blocked by current user
+    blocked_by_me = blocked_users.get(current_user, [])
+    
+    # Get list of users who blocked current user
+    blocked_me = []
+    for blocker, blocked_list in blocked_users.items():
+        if current_user in blocked_list:
+            blocked_me.append(blocker)
+
     for username, user_data in users.items():
-        if username != current_user and query in username.lower():
+        if (username != current_user and 
+            query in username.lower() and 
+            username not in blocked_by_me and 
+            username not in blocked_me):
             follower_count = get_follower_count(username)
             results.append({
                 'username': username,
@@ -1183,10 +1247,31 @@ def recent_users():
     users = load_users()
     current_user = session['username']
 
+    # Load blocked users
+    blocked_file = 'blocked_users.json'
+    blocked_users = {}
+    if os.path.exists(blocked_file):
+        try:
+            with open(blocked_file, 'r', encoding='utf-8') as f:
+                blocked_users = json.load(f)
+        except:
+            blocked_users = {}
+
+    # Get list of users blocked by current user
+    blocked_by_me = blocked_users.get(current_user, [])
+    
+    # Get list of users who blocked current user
+    blocked_me = []
+    for blocker, blocked_list in blocked_users.items():
+        if current_user in blocked_list:
+            blocked_me.append(blocker)
+
     # Kullanıcıları kayıt tarihine göre sırala ve son 4'ünü al
     user_list = []
     for username, user_data in users.items():
-        if username != current_user:
+        if (username != current_user and 
+            username not in blocked_by_me and 
+            username not in blocked_me):
             created_at = user_data.get('created_at', '')
             try:
                 # Tarih formatını düzenle
@@ -1255,10 +1340,31 @@ def get_all_users():
     users = load_users()
     current_user = session['username']
 
+    # Load blocked users
+    blocked_file = 'blocked_users.json'
+    blocked_users = {}
+    if os.path.exists(blocked_file):
+        try:
+            with open(blocked_file, 'r', encoding='utf-8') as f:
+                blocked_users = json.load(f)
+        except:
+            blocked_users = {}
+
+    # Get list of users blocked by current user
+    blocked_by_me = blocked_users.get(current_user, [])
+    
+    # Get list of users who blocked current user
+    blocked_me = []
+    for blocker, blocked_list in blocked_users.items():
+        if current_user in blocked_list:
+            blocked_me.append(blocker)
+
     # Tüm kullanıcıları listele
     user_list = []
     for username, user_data in users.items():
-        if username != current_user:
+        if (username != current_user and 
+            username not in blocked_by_me and 
+            username not in blocked_me):
             created_at = user_data.get('created_at', '')
             try:
                 # Tarih formatını düzenle
