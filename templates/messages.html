@@ -1,0 +1,358 @@
+
+{% extends "base.html" %}
+
+{% block title %}Mesajlar - ChatNell{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eee;">
+        <h2 style="background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 0; font-size: 1.8rem;">
+            💬 Mesajlar
+        </h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="search-users" placeholder="🔍 Kullanıcı ara..." 
+                   style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 20px; font-size: 14px; width: 200px;">
+        </div>
+    </div>
+
+    <div id="search-results" style="display: none; background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+        <h4 style="margin: 0 0 10px 0; color: #333;">Arama Sonuçları:</h4>
+        <div id="search-list"></div>
+    </div>
+
+    {% if conversations %}
+        <div class="conversations-list">
+            {% for username, conversation_data in conversations %}
+                <div class="conversation-item" onclick="window.location.href='{{ url_for('chat', recipient=username) }}'">
+                    <div class="conversation-avatar">
+                        {% if users[username].profile_photo %}
+                            <img src="/{{ users[username].profile_photo }}" alt="{{ username }}" class="avatar-img">
+                        {% else %}
+                            <div class="avatar-placeholder">{{ username[0].upper() }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-content">
+                        <div class="conversation-header">
+                            <h4 class="conversation-name">{{ username }}</h4>
+                            <span class="conversation-time">
+                                {{ conversation_data.last_message.timestamp | format_time }}
+                            </span>
+                        </div>
+                        <div class="conversation-preview">
+                            <span class="sender-name">
+                                {% if conversation_data.last_message.sender == session.username %}
+                                    Sen: 
+                                {% else %}
+                                    {{ conversation_data.last_message.sender }}: 
+                                {% endif %}
+                            </span>
+                            <span class="message-preview">
+                                {% if conversation_data.last_message.get('is_file') %}
+                                    📎 Dosya gönderildi
+                                {% else %}
+                                    {{ conversation_data.last_message.message[:50] }}{% if conversation_data.last_message.message|length > 50 %}...{% endif %}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="conversation-actions">
+                        <button onclick="deleteConversation('{{ username }}', event)" class="delete-conversation-btn" title="Sohbeti Sil">
+                            🗑️
+                        </button>
+                        <div class="conversation-arrow">➤</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div style="text-align: center; padding: 60px 20px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 20px;">💬</div>
+                <h3 style="margin: 0 0 10px 0; color: #333;">Henüz mesaj yok</h3>
+                <p style="margin: 0; font-size: 14px;">Arkadaşlarınızla sohbet etmeye başlayın!</p>
+                <div style="margin-top: 20px;">
+                    <a href="{{ url_for('dashboard') }}" class="btn">
+                        👥 Kullanıcıları Keşfet
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.conversations-list {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.conversation-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin-bottom: 5px;
+}
+
+.conversation-item:hover {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    transform: translateX(5px);
+}
+
+.conversation-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 15px;
+    border: 2px solid #ddd;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.conversation-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.conversation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.conversation-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.conversation-time {
+    font-size: 12px;
+    color: #888;
+}
+
+.conversation-preview {
+    font-size: 14px;
+    color: #666;
+}
+
+.sender-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.message-preview {
+    color: #777;
+}
+
+.conversation-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.conversation-arrow {
+    color: #ddd;
+    font-size: 18px;
+}
+
+.delete-conversation-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    color: #ff4757;
+}
+
+.conversation-item:hover .delete-conversation-btn {
+    opacity: 1;
+}
+
+.delete-conversation-btn:hover {
+    background: rgba(255, 71, 87, 0.1);
+    transform: scale(1.1);
+}
+
+.search-user-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 6px;
+    margin-bottom: 5px;
+}
+
+.search-user-item:hover {
+    background: #e9ecef;
+}
+
+.search-user-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .conversation-item {
+        padding: 12px;
+    }
+    
+    .conversation-avatar {
+        width: 40px;
+        height: 40px;
+        margin-right: 12px;
+    }
+    
+    .conversation-name {
+        font-size: 15px;
+    }
+    
+    .conversation-time {
+        font-size: 11px;
+    }
+    
+    .conversation-preview {
+        font-size: 13px;
+    }
+}
+</style>
+
+<script>
+// Format time function
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Şimdi';
+    if (diffMins < 60) return `${diffMins}dk`;
+    if (diffHours < 24) return `${diffHours}sa`;
+    if (diffDays < 7) return `${diffDays}g`;
+    return date.toLocaleDateString('tr-TR');
+}
+
+// Update time displays
+document.querySelectorAll('.conversation-time').forEach(el => {
+    const timestamp = el.getAttribute('data-timestamp');
+    if (timestamp) {
+        el.textContent = formatTime(timestamp);
+    }
+});
+
+// Search functionality
+function searchUsers() {
+    const query = document.getElementById('search-users').value.trim();
+    const resultsDiv = document.getElementById('search-results');
+    const searchList = document.getElementById('search-list');
+
+    if (query.length < 2) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    fetch(`/search_users?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(users => {
+            if (users.length > 0) {
+                resultsDiv.style.display = 'block';
+                searchList.innerHTML = users.map(user => `
+                    <div class="search-user-item" onclick="startChat('${user.username}')">
+                        <div class="search-user-avatar">${user.username[0].toUpperCase()}</div>
+                        <div>
+                            <strong>${user.username}</strong>
+                            <div style="font-size: 12px; color: #666;">
+                                ${user.followers_count} takipçi
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                resultsDiv.style.display = 'block';
+                searchList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Kullanıcı bulunamadı</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+        });
+}
+
+function startChat(username) {
+    window.location.href = `/chat/${username}`;
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#search-users') && !e.target.closest('#search-results')) {
+        document.getElementById('search-results').style.display = 'none';
+    }
+});
+
+// Search input event
+document.getElementById('search-users').addEventListener('input', searchUsers);
+
+function deleteConversation(username, event) {
+    event.stopPropagation(); // Prevent navigation to chat
+    
+    if (confirm(`${username} ile olan sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+        fetch('/delete_conversation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to update the conversation list
+                window.location.reload();
+            } else {
+                alert('Sohbet silinirken hata oluştu: ' + (data.error || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting conversation:', error);
+            alert('Sohbet silinirken hata oluştu');
+        });
+    }
+}
+</script>
+
+{% endblock %}

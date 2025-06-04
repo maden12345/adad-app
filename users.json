@@ -1,0 +1,33 @@
+{
+  "Anılmaden": {
+    "password": "4564c2531b7489e20b59a999a92da70f2c09461681a8c56ed77b50737787d7fb",
+    "email": "09adad09987890@gmail.com",
+    "created_at": "2025-06-02T14:29:40.100188",
+    "last_seen": "2025-06-03T23:59:20.792911",
+    "status": "offline",
+    "profile_photo": "uploads/Anlmaden_IMG_1504.jpeg",
+    "bio": ""
+  },
+  "irem.cayr1": {
+    "password": "4564c2531b7489e20b59a999a92da70f2c09461681a8c56ed77b50737787d7fb",
+    "email": "kankalar1234knk@gmail.com",
+    "created_at": "2025-06-02T21:25:42.833582",
+    "profile_photo": "uploads/irem.cayr1_IMG_0720.jpeg",
+    "bio": "",
+    "last_seen": "2025-06-04T01:51:29.591810",
+    "status": "online",
+    "allow_messages_from_all": true,
+    "liked_posts_public": true,
+    "hide_posts_from_everyone": false
+  },
+  "ayca.bül": {
+    "password": "4564c2531b7489e20b59a999a92da70f2c09461681a8c56ed77b50737787d7fb",
+    "created_at": "2025-06-02T21:57:26.811442",
+    "profile_photo": null,
+    "bio": "",
+    "last_seen": "2025-06-04T01:06:10.800999",
+    "status": "online",
+    "allow_messages_from_all": true,
+    "posts": []
+  }
+}

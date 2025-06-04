@@ -1,0 +1,618 @@
+
+{% extends "base.html" %}
+
+{% block title %}Ses Odaları - ChatNell{% endblock %}
+
+{% block content %}
+<!-- Bildirim Sistemi -->
+<div id="notification-container" style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; max-width: 400px; width: 90%;"></div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <h3 style="font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0;">🎤 Ses Odaları</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="createVoiceRoom()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                🏠 Ses Odası Oluştur
+            </button>
+            <button onclick="showGlobalChannelOptions()" style="background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                🔊 Ses Kanalı Ekle
+            </button>
+            <button onclick="showGlobalPrivateChannelOptions()" style="background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                🔒 Şifreli Kanal Ekle
+            </button>
+        </div>
+    </div>
+
+    <!-- Arama Kutusu -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="voice-room-search" placeholder="🔍 Ses odası ara..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; background: #fafafa;" oninput="searchVoiceRooms()">
+    </div>
+
+    <div id="voice-rooms-container" style="min-height: 200px;">
+        <div style="text-align: center; color: #666; font-size: 14px; padding: 40px;">Ses odaları yükleniyor...</div>
+    </div>
+</div>
+
+<script>
+// Global variable to store all voice rooms for search
+let allVoiceRooms = [];
+
+function loadVoiceRooms() {
+    fetch('/get_voice_rooms')
+        .then(response => response.json())
+        .then(rooms => {
+            allVoiceRooms = rooms; // Store all rooms globally
+            displayVoiceRooms(rooms);
+        })
+        .catch(error => {
+            console.error('Error loading voice rooms:', error);
+            document.getElementById('voice-rooms-container').innerHTML = '<div style="text-align: center; color: #ff4757; font-size: 14px; padding: 40px;">Ses odaları yüklenirken hata oluştu</div>';
+        });
+}
+
+function displayVoiceRooms(rooms) {
+    const container = document.getElementById('voice-rooms-container');
+
+    if (rooms.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px; padding: 40px;">Henüz ses odası yok</div>';
+        return;
+    }
+
+    container.innerHTML = rooms.map(room => `
+        <div style="border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: #fafafa;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h4 style="margin: 0; font-size: 18px; color: #1a1a1a;">🎤 ${room.name}</h4>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="showAddChannelMenu(${room.id})" style="background: #4ecdc4; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">+ Kanal Ekle</button>
+                    ${room.creator === '{{ session.username }}' ? `<button onclick="deleteVoiceRoom(${room.id})" style="background: #ff4757; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Sil</button>` : ''}
+                </div>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 12px;">Oluşturan: ${room.creator}</div>
+            <div id="channels-${room.id}">
+                ${room.channels.map(channel => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: white; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid ${channel.is_private ? '#ff6b6b' : '#4ecdc4'};">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 16px;">${channel.is_private ? '🔒' : '🔊'} ${channel.name}</span>
+                            <span style="font-size: 12px; color: #666; background: #f0f0f0; padding: 2px 8px; border-radius: 12px;">${channel.users.length} kişi</span>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            ${channel.users.includes('{{ session.username }}') ? 
+                                `<button onclick="leaveVoiceChannel(${room.id}, ${channel.id})" style="background: #ff4757; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Çık</button>` :
+                                `<button onclick="joinVoiceChannel(${room.id}, ${channel.id}, ${channel.is_private})" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Katıl</button>`
+                            }
+                            ${(room.creator === '{{ session.username }}' || channel.creator === '{{ session.username }}') ? `<button onclick="deleteVoiceChannel(${room.id}, ${channel.id})" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Sil</button>` : ''}
+                        </div>
+                    </div>
+                    ${channel.users.length > 0 ? `
+                        <div style="padding: 12px 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; margin-left: 24px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 6px;">Odadaki kullanıcılar:</div>
+                            ${channel.users.map(user => `
+                                <div style="display: inline-block; background: #4ecdc4; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-right: 6px; margin-bottom: 4px;">
+                                    🎤 ${user}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+function searchVoiceRooms() {
+    const query = document.getElementById('voice-room-search').value.trim().toLowerCase();
+    
+    if (query === '') {
+        displayVoiceRooms(allVoiceRooms);
+        return;
+    }
+
+    const filteredRooms = allVoiceRooms.filter(room => 
+        room.name.toLowerCase().includes(query)
+    );
+
+    if (filteredRooms.length === 0) {
+        document.getElementById('voice-rooms-container').innerHTML = '<div style="text-align: center; color: #666; font-size: 14px; padding: 40px;">Arama sonucu bulunamadı</div>';
+    } else {
+        displayVoiceRooms(filteredRooms);
+    }
+}
+
+function createVoiceRoom() {
+    showCreateRoomModal();
+}
+
+function showGlobalChannelOptions() {
+    if (allVoiceRooms.length === 0) {
+        showErrorModal('Önce bir ses odası oluşturun');
+        return;
+    }
+
+    const roomOptions = allVoiceRooms.map(room => 
+        `<option value="${room.id}">${room.name}</option>`
+    ).join('');
+
+    const modal = `
+        <div id="global-channel-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🔊 Ses Kanalı Ekle</h3>
+                <select id="room-select" style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 15px;">
+                    <option value="">Ses odasını seçin...</option>
+                    ${roomOptions}
+                </select>
+                <input type="text" id="global-channel-name" placeholder="Kanal ismi girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;" maxlength="30">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmGlobalChannel(false)" style="background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeGlobalChannelModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    const input = document.getElementById('global-channel-name');
+    input.focus();
+
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            confirmGlobalChannel(false);
+        }
+    });
+}
+
+function showGlobalPrivateChannelOptions() {
+    if (allVoiceRooms.length === 0) {
+        showErrorModal('Önce bir ses odası oluşturun');
+        return;
+    }
+
+    const roomOptions = allVoiceRooms.map(room => 
+        `<option value="${room.id}">${room.name}</option>`
+    ).join('');
+
+    const modal = `
+        <div id="global-private-channel-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🔒 Şifreli Ses Kanalı Ekle</h3>
+                <select id="private-room-select" style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 15px;">
+                    <option value="">Ses odasını seçin...</option>
+                    ${roomOptions}
+                </select>
+                <input type="text" id="global-private-channel-name" placeholder="Kanal ismi girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 15px; box-sizing: border-box;" maxlength="30">
+                <input type="password" id="global-private-channel-password" placeholder="Kanal şifresi girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmGlobalChannel(true)" style="background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeGlobalPrivateChannelModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    const input = document.getElementById('global-private-channel-name');
+    input.focus();
+
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            confirmGlobalChannel(true);
+        }
+    });
+}
+
+function closeGlobalChannelModal() {
+    const modal = document.getElementById('global-channel-modal');
+    if (modal) modal.remove();
+}
+
+function closeGlobalPrivateChannelModal() {
+    const modal = document.getElementById('global-private-channel-modal');
+    if (modal) modal.remove();
+}
+
+function confirmGlobalChannel(isPrivate) {
+    const roomSelect = document.getElementById(isPrivate ? 'private-room-select' : 'room-select');
+    const channelNameInput = document.getElementById(isPrivate ? 'global-private-channel-name' : 'global-channel-name');
+    const passwordInput = isPrivate ? document.getElementById('global-private-channel-password') : null;
+
+    const roomId = parseInt(roomSelect.value);
+    const channelName = channelNameInput.value.trim();
+    const password = passwordInput ? passwordInput.value.trim() : null;
+
+    if (isNaN(roomId)) {
+        showErrorModal('Lütfen bir ses odası seçin');
+        return;
+    }
+
+    if (!channelName) {
+        showErrorModal('Kanal ismi gerekli');
+        return;
+    }
+
+    if (isPrivate && !password) {
+        showErrorModal('Şifreli kanal için şifre gerekli');
+        return;
+    }
+
+    fetch('/add_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            room_id: roomId, 
+            name: channelName,
+            is_private: isPrivate,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (isPrivate) {
+                closeGlobalPrivateChannelModal();
+            } else {
+                closeGlobalChannelModal();
+            }
+            loadVoiceRooms();
+            showSuccessModal('✅ Ses kanalı başarıyla oluşturuldu');
+        } else {
+            showErrorModal('❌ ' + (data.error || 'Kanal oluşturulamadı'));
+        }
+    })
+    .catch(error => {
+        console.error('Error creating channel:', error);
+        showErrorModal('❌ Bir hata oluştu');
+    });
+}
+
+function showCreateRoomModal() {
+    const modal = `
+        <div id="create-room-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🎤 Ses Odası Oluştur</h3>
+                <input type="text" id="room-name-input" placeholder="Ses odası ismini girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;" maxlength="50">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmCreateRoom()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeCreateRoomModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    const input = document.getElementById('room-name-input');
+    input.focus();
+
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            confirmCreateRoom();
+        }
+    });
+}
+
+function closeCreateRoomModal() {
+    const modal = document.getElementById('create-room-modal');
+    if (modal) modal.remove();
+}
+
+function confirmCreateRoom() {
+    const roomName = document.getElementById('room-name-input').value.trim();
+    if (!roomName) {
+        showErrorModal('Ses odası ismi gerekli');
+        return;
+    }
+
+    fetch('/create_voice_room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: roomName.trim() })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeCreateRoomModal();
+            loadVoiceRooms();
+            showSuccessModal('✅ ' + data.message);
+        } else {
+            showErrorModal('❌ ' + (data.error || 'Ses odası oluşturulamadı'));
+        }
+    })
+    .catch(error => {
+        console.error('Error creating voice room:', error);
+        showErrorModal('❌ Bir hata oluştu');
+    });
+}
+
+function showAddChannelMenu(roomId) {
+    const options = `
+        <div id="add-channel-menu" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 10000;">
+            <h4 style="margin: 0 0 15px 0; color: #1a1a1a;">Ses Kanalı Ekle</h4>
+            <input type="text" id="channel-name" placeholder="Kanal ismi" style="width: 100%; padding: 8px; border: 1px solid #e5e5e5; border-radius: 6px; margin-bottom: 12px;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="addVoiceChannel(${roomId}, false)" style="background: #4ecdc4; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; flex: 1;">🔊 Normal Kanal</button>
+                <button onclick="addVoiceChannel(${roomId}, true)" style="background: #ff6b6b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; flex: 1;">🔒 Şifreli Kanal</button>
+            </div>
+            <button onclick="closeAddChannelMenu()" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px;">İptal</button>
+        </div>
+        <div id="add-channel-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;" onclick="closeAddChannelMenu()"></div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', options);
+}
+
+function closeAddChannelMenu() {
+    const menu = document.getElementById('add-channel-menu');
+    const overlay = document.getElementById('add-channel-overlay');
+    if (menu) menu.remove();
+    if (overlay) overlay.remove();
+}
+
+function addVoiceChannel(roomId, isPrivate) {
+    const channelName = document.getElementById('channel-name').value.trim();
+    if (!channelName) {
+        showErrorModal('Kanal ismi gerekli');
+        return;
+    }
+
+    if (isPrivate) {
+        showCreateChannelPasswordModal(roomId, channelName);
+    } else {
+        performCreateChannel(roomId, channelName, false, null);
+    }
+}
+
+function showCreateChannelPasswordModal(roomId, channelName) {
+    const modal = `
+        <div id="create-password-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🔒 Şifreli Kanal Oluştur</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 20px;">Bu kanal için bir şifre belirleyin</p>
+                <input type="password" id="create-channel-password-input" placeholder="Kanal şifresini girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="submitCreateChannelPassword(${roomId}, '${channelName}')" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeCreatePasswordModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    const input = document.getElementById('create-channel-password-input');
+    input.focus();
+
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitCreateChannelPassword(roomId, channelName);
+        }
+    });
+}
+
+function closeCreatePasswordModal() {
+    const modal = document.getElementById('create-password-modal');
+    if (modal) modal.remove();
+}
+
+function submitCreateChannelPassword(roomId, channelName) {
+    const password = document.getElementById('create-channel-password-input').value.trim();
+    if (!password) {
+        showErrorModal('Şifre gerekli');
+        return;
+    }
+
+    closeCreatePasswordModal();
+    closeAddChannelMenu();
+    performCreateChannel(roomId, channelName, true, password);
+}
+
+function performCreateChannel(roomId, channelName, isPrivate, password) {
+    fetch('/add_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            room_id: roomId, 
+            name: channelName,
+            is_private: isPrivate,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+        } else {
+            alert(data.error || 'Kanal oluşturulamadı');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding channel:', error);
+        alert('Bir hata oluştu');
+    });
+}
+
+function joinVoiceChannel(roomId, channelId, isPrivate) {
+    let password = null;
+    if (isPrivate) {
+        password = prompt('Kanal şifresi:');
+        if (!password) return;
+    }
+
+    fetch('/join_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            room_id: roomId, 
+            channel_id: channelId,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+            startVoiceChat(roomId, channelId);
+        } else {
+            alert(data.error || 'Kanala katılamadınız');
+        }
+    })
+    .catch(error => {
+        console.error('Error joining channel:', error);
+        alert('Bir hata oluştu');
+    });
+}
+
+function leaveVoiceChannel(roomId, channelId) {
+    fetch('/leave_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_id: roomId, channel_id: channelId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+            stopVoiceChat();
+        }
+    });
+}
+
+function deleteVoiceChannel(roomId, channelId) {
+    showDeleteConfirmModal('Bu ses kanalını silmek istediğinizden emin misiniz?', function() {
+        fetch('/delete_voice_channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId, channel_id: channelId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadVoiceRooms();
+            }
+        });
+    });
+}
+
+function deleteVoiceRoom(roomId) {
+    showDeleteConfirmModal('Bu ses odasını silmek istediğinizden emin misiniz?', function() {
+        fetch('/delete_voice_room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadVoiceRooms();
+            }
+        });
+    });
+}
+
+function showDeleteConfirmModal(message, onConfirm) {
+    const modal = `
+        <div id="delete-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">⚠️ Silme Onayı</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmDelete()" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">🗑️ Sil</button>
+                    <button onclick="closeDeleteConfirmModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    window.currentDeleteCallback = onConfirm;
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('delete-confirm-modal');
+    if (modal) modal.remove();
+    window.currentDeleteCallback = null;
+}
+
+function confirmDelete() {
+    if (window.currentDeleteCallback) {
+        window.currentDeleteCallback();
+    }
+    closeDeleteConfirmModal();
+}
+
+function showErrorModal(message) {
+    const modal = `
+        <div id="error-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #ff4757; text-align: center;">❌ Hata</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="text-align: center;">
+                    <button onclick="closeErrorModal()" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">Tamam</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('error-modal');
+    if (modal) modal.remove();
+}
+
+function showSuccessModal(message) {
+    const modal = `
+        <div id="success-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #27ae60; text-align: center;">✅ Başarılı</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="text-align: center;">
+                    <button onclick="closeSuccessModal()" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">Tamam</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function closeSuccessModal() {
+    const modal = document.getElementById('success-modal');
+    if (modal) modal.remove();
+}
+
+// WebRTC Voice Chat functions (basit placeholder)
+let localStream;
+let peerConnections = {};
+let currentChannel = null;
+
+async function startVoiceChat(roomId, channelId) {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        currentChannel = { roomId, channelId };
+
+        if (typeof socket !== 'undefined') {
+            socket.emit('join_voice_channel', { room_id: roomId, channel_id: channelId });
+        }
+
+    } catch (error) {
+        console.error('Mikrofon erişimi reddedildi:', error);
+        alert('Mikrofon erişimi gerekli');
+    }
+}
+
+function stopVoiceChat() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    Object.values(peerConnections).forEach(pc => pc.close());
+    peerConnections = {};
+
+    if (currentChannel && typeof socket !== 'undefined') {
+        socket.emit('leave_voice_channel', currentChannel);
+        currentChannel = null;
+    }
+}
+
+// Sayfa yüklendiğinde ses odalarını yükle
+document.addEventListener('DOMContentLoaded', function() {
+    loadVoiceRooms();
+});
+</script>
+{% endblock %}

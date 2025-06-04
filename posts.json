@@ -1,0 +1,60 @@
+[
+  {
+    "id": 1,
+    "username": "ayca.bül",
+    "content": ".",
+    "is_public": true,
+    "created_at": "2025-06-03T12:54:30.525377",
+    "media_files": [
+      {
+        "filename": "IMG_1327.jpeg",
+        "path": "uploads/ayca.bul_20250603_125430_IMG_1327.jpeg",
+        "type": "image"
+      }
+    ],
+    "likes": [],
+    "comments": [
+      {
+        "id": 0,
+        "username": "irem.cayr1",
+        "comment": "a",
+        "timestamp": "2025-06-03T13:47:26.497610"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "username": "ayca.bül",
+    "content": "e",
+    "is_public": true,
+    "created_at": "2025-06-03T14:48:24.954355",
+    "media_files": [
+      {
+        "filename": "IMG_0264.mov",
+        "path": "uploads/ayca.bul_20250603_144824_IMG_0264.mov",
+        "type": "video"
+      }
+    ],
+    "likes": [
+      "ayca.bül",
+      "irem.cayr1"
+    ]
+  },
+  {
+    "id": 2,
+    "username": "irem.cayr1",
+    "content": "selamlarr",
+    "is_public": true,
+    "created_at": "2025-06-03T19:03:11.411643",
+    "media_files": [
+      {
+        "filename": "ScreenRecording_05-07-2025 18-55-32_1.mov",
+        "path": "uploads/irem.cayr1_20250603_190311_ScreenRecording_05-07-2025_18-55-32_1.mov",
+        "type": "video"
+      }
+    ],
+    "likes": [
+      "irem.cayr1"
+    ]
+  }
+]

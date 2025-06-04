@@ -1,0 +1,2944 @@
+{% extends "base.html" %}
+
+{% block title %}Nells - ChatNell{% endblock %}
+
+{% block content %}
+<div class="nells-container">
+    <!-- Header with search -->
+    <div class="nells-header">
+        <div class="header-content">
+            <div class="left-section">
+                <h2>🔥 Nells</h2>
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Ara..." />
+                    <button id="search-btn">🔍</button>
+                </div>
+            </div>
+            {% if not is_guest %}
+            <a href="{{ url_for('profile', username=session.username) }}" class="create-post-fab">
+                ➕
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if posts %}
+        <div class="posts-feed">
+            {% for post in posts %}
+                <div class="post-item" data-post-id="{{ post.id }}">
+                    <!-- Post Header -->
+                    <div class="post-header">
+                        <div class="user-section">
+                            {% if users_data and users_data.get(post.username, {}).get('profile_photo') %}
+                                <img src="/static/{{ users_data[post.username]['profile_photo'] }}" alt="{{ post.username }}" class="avatar">
+                            {% else %}
+                                <div class="avatar-placeholder">{{ post.username[0].upper() }}</div>
+                            {% endif %}
+                            <div class="user-info">
+                                <a href="{{ url_for('profile', username=post.username) }}" class="username">@{{ post.username }}</a>
+                                <span class="post-time">{{ (post.created_at|replace('T', ' ')|replace('.', ' '))[:16] }}</span>
+                            </div>
+                        </div>
+                        <div class="post-menu">
+                            {% if not is_guest and post.username == session.username %}
+                            <button onclick="deletePost({{ post.id }})" class="menu-btn delete">🗑️</button>
+                            {% elif not is_guest and post.username != session.username %}
+                            <button id="follow-btn-{{ post.username }}" onclick="followUser('{{ post.username }}')" class="follow-btn">Takip Et</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Post Content -->
+                    <div class="post-content">
+                        <p class="content-text">{{ post.content }}</p>
+                    </div>
+
+                    <!-- Media Content -->
+                    {% if post.media_files %}
+                        <div class="media-wrapper">
+                            {% set video_files = post.media_files|selectattr('type', 'equalto', 'video')|list %}
+                            {% set image_files = post.media_files|rejectattr('type', 'equalto', 'video')|list %}
+
+                            {% if video_files %}
+                                {% for file in video_files %}
+                                    <div class="video-wrapper">
+                                        <video 
+                                            id="video-{{ post.id }}-{{ loop.index }}"
+                                            class="post-media video" 
+                                            src="/{{ file.path }}" 
+                                            onclick="handleVideoClick(this)"
+                                            ontouchend="handleVideoClick(this)"
+                                            playsinline
+                                            preload="metadata"
+                                            loop
+                                            muted="{{ 'true' if not globalAudioEnabled else 'false' }}"
+                                            data-post-id="{{ post.id }}">
+											<source src="/{{ file.path }}" type="video/mp4">
+                                        </video>
+                                        <div class="video-overlay">
+                                            <button class="play-btn" onclick="toggleVideo(document.getElementById('video-{{ post.id }}-{{ loop.index }}'))">
+                                                <span class="play-icon">▶️</span>
+                                            </button>
+                                        </div>
+                                        <div class="video-view-count" id="view-count-{{ post.id }}">
+                                            <span class="view-icon">👁️</span>
+                                            <span class="view-number">0</span>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            {% if image_files %}
+                                <div class="image-grid {% if image_files|length > 1 %}multi-image{% endif %}">
+                                    {% for file in image_files %}
+                                        <img src="/{{ file.path }}" alt="{{ file.filename }}" class="post-media image" onclick="openFullscreen('/{{ file.path }}', '{{ post.id }}')">
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- TikTok Style Action Bar - Right Side -->
+                    <div class="tiktok-actions">
+                        <button class="tiktok-btn like-btn" onclick="toggleLike({{ post.id }})" data-post-id="{{ post.id }}">
+                            <span class="icon">🤍</span>
+                            <span class="count">0</span>
+                        </button>
+                        <button class="tiktok-btn comment-btn" onclick="toggleComments({{ post.id }})">
+                            <span class="icon">💬</span>
+                            <span class="count">0</span>
+                        </button>
+                        <button class="tiktok-btn share-btn" onclick="sharePost({{ post.id }})">
+                            <span class="icon">📤</span>
+                        </button>
+                    </div>
+
+                    <!-- Follower info moved to bottom -->
+                    <div class="follower-info">
+                        <span class="follower-count">{{ post.followers_count }} takipçi</span>
+                    </div>
+
+                    <!-- Comments Section -->
+                    <div class="comments-section" id="comments-{{ post.id }}" style="display: none;">
+                        <div class="comments-list" id="comments-list-{{ post.id }}">
+                            <!-- Comments will be loaded here -->
+                        </div>
+                        {% if not is_guest %}
+                        <div class="comment-input-wrapper">
+                            <input type="text" placeholder="Yorum ekle..." class="comment-input" id="comment-input-{{ post.id }}" onkeypress="handleCommentKeyPress(event, {{ post.id }})">
+                            <button onclick="addComment({{ post.id }})" class="send-comment-btn">📤</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-feed">
+            <div class="empty-icon">📱</div>
+            <h3>Henüz gönderi yok</h3>
+            <p>İlk gönderinizi paylaşarak başlayın!</p>
+            {% if not is_guest %}
+            <a href="{{ url_for('profile', username=session.username) }}" class="cta-btn">İlk Gönderini Paylaş</a>
+            {% else %}
+            <a href="{{ url_for('index') }}" class="cta-btn">Giriş Yap</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Global ses kontrol butonu - sağ üst köşe -->
+<div class="audio-control">
+    <button id="global-audio-btn" onclick="toggleGlobalAudio()" class="audio-btn">
+        <span id="audio-icon">🔇</span>
+    </button>
+</div>
+
+<!-- Floating Action Button for scroll -->
+<div class="scroll-controls">
+    <button onclick="scrollToTop()" class="scroll-btn">⬆️</button>
+</div>
+
+<!-- Fullscreen Modal -->
+<div id="fullscreen-modal" class="fullscreen-modal" onclick="closeFullscreen()">
+    <div class="fullscreen-content">
+        <img id="fullscreen-image" class="fullscreen-image">
+        <video id="fullscreen-video" class="fullscreen-video" controls style="display: none;"></video>
+        <button class="close-btn" onclick="closeFullscreen()">✕</button>
+
+        <!-- Navigation arrows for mobile swipe -->
+        <button class="nav-arrow prev-arrow" onclick="navigateMedia(-1)">‹</button>
+        <button class="nav-arrow next-arrow" onclick="navigateMedia(1)">›</button>
+
+        <!-- Transparent action buttons in fullscreen -->
+        <div class="fullscreen-actions">
+            <button class="fullscreen-action-btn like-btn-fs" onclick="toggleLikeFullscreen()" data-post-id="">
+                <span class="icon">🤍</span>
+                <span class="count">0</span>
+            </button>
+            <button class="fullscreen-action-btn comment-btn-fs" onclick="toggleCommentsFullscreen()">
+                <span class="icon">💬</span>
+                <span class="count">0</span>
+            </button>
+            <button class="fullscreen-action-btn share-btn-fs" onclick="sharePostFullscreen()">
+                <span class="icon">📤</span>
+            </button>
+        </div></div>
+
+<!-- Fullscreen Comments Section -->
+<div id="fullscreen-comments" class="fullscreen-comments" style="display: none;">
+    <div class="fullscreen-comments-content">
+        <div class="fullscreen-comments-header">
+            <h3>Yorumlar</h3>
+            <button onclick="closeFullscreenComments()" class="close-comments-btn">✕</button>
+        </div>
+        <div class="fullscreen-comments-list" id="fullscreen-comments-list">
+            <!-- Comments will be loaded here -->
+        </div>
+        {% if not is_guest %}
+        <div class="fullscreen-comment-input-wrapper">
+            <input type="text" placeholder="Yorum ekle..." class="fullscreen-comment-input" id="fullscreen-comment-input" onkeypress="handleFullscreenCommentKeyPress(event)">
+            <button onclick="addFullscreenComment()" class="send-fullscreen-comment-btn">📤</button>
+        </div>
+        {% endif %}
+    </div>
+
+        <!-- Video Navigation Controls - Bottom Right -->
+        <div class="fullscreen-video-nav">
+            <button class="video-nav-btn" onclick="navigateToVideo(-1)">⬆️</button>
+            <button class="video-nav-btn" onclick="navigateToVideo(1)">⬇️</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let currentUser = '{{ session.username if not is_guest else "" }}';
+let isGuest = {{ 'true' if is_guest else 'false' }};
+let currentFullscreenPostId = null;
+let mediaElements = [];
+let currentMediaIndex = 0;
+let allVideos = [];
+let currentVideoIndex = 0;
+let globalAudioEnabled = false; // Added global audio control
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllPostData();
+    if (!isGuest) {
+        loadFollowStatuses();
+    }
+    setupAutoPlay();
+    initializeVideoNavigation();
+	updateGlobalAudioButton();
+    loadVideoViewCounts();
+});
+
+// Load post data (likes, comments)
+function loadAllPostData() {
+    document.querySelectorAll('.post-item').forEach(postElement => {
+        const postId = postElement.dataset.postId;
+        loadPostData(postId);
+    });
+}
+
+function loadPostData(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                updateLikeButton(postId, data.likes, data.like_count);
+                updateCommentCount(postId, data.comment_count);
+                loadComments(postId, data.comments);
+            }
+        })
+        .catch(error => console.log('Error loading post data:', error));
+}
+
+// Like functionality
+function toggleLike(postId) {
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const btn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+            const icon = btn.querySelector('.icon');
+            const count = btn.querySelector('.count');
+
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            btn.classList.toggle('liked', data.liked);
+
+            // Add animation
+            btn.style.transform = 'scale(1.2)';
+            setTimeout(() => btn.style.transform = 'scale(1)', 200);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Like error:', error));
+}
+
+function updateLikeButton(postId, likes, likeCount) {
+    const btn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    if (btn) {
+        const icon = btn.querySelector('.icon');
+        const count = btn.querySelector('.count');
+        const isLiked = likes.includes(currentUser);
+
+        icon.textContent = isLiked ? '❤️' : '🤍';
+        count.textContent = likeCount;
+        btn.classList.toggle('liked', isLiked);
+    }
+}
+
+// Comment functionality
+function toggleComments(postId) {
+    const commentsSection = document.getElementById(`comments-${postId}`);
+    const isVisible = commentsSection.style.display !== 'none';
+
+    commentsSection.style.display = isVisible ? 'none' : 'block';
+
+    // Animate
+    if (!isVisible) {
+        commentsSection.style.maxHeight = '0';
+        commentsSection.style.opacity = '0';
+        setTimeout(() => {
+            commentsSection.style.maxHeight = '500px';
+            commentsSection.style.opacity = '1';
+        }, 10);
+    }
+}
+
+function addComment(postId) {
+    if (isGuest) {
+        alert('Yorum yapmak için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    const input = document.getElementById(`comment-input-${postId}`);
+    const comment = input.value.trim();
+
+    if (!comment) return;
+
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            post_id: postId, 
+            comment: comment 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            addCommentToDOM(postId, data.comment);
+            updateCommentCount(postId, data.comment_count);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Comment error:', error));
+}
+
+function handleCommentKeyPress(event, postId) {
+    if (event.key === 'Enter') {
+        addComment(postId);
+    }
+}
+
+function addCommentToDOM(postId, comment) {
+    const commentsList = document.getElementById(`comments-list-${postId}`);
+    const commentElement = document.createElement('div');
+    commentElement.className = 'comment-item';
+    commentElement.innerHTML = `
+        <div class="comment-user">@${comment.username}</div>
+        <div class="comment-text">${comment.comment}</div>
+        <div class="comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
+    `;
+    commentsList.appendChild(commentElement);
+
+    // Animate new comment
+    commentElement.style.opacity = '0';
+    commentElement.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+        commentElement.style.opacity = '1';
+        commentElement.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+function loadComments(postId, comments) {
+    const commentsList = document.getElementById(`comments-list-${postId}`);
+    commentsList.innerHTML = '';
+
+    comments.forEach(comment => {
+        addCommentToDOM(postId, comment);
+    });
+}
+
+function updateCommentCount(postId, count) {
+    const btn = document.querySelector(`[onclick="toggleComments(${postId})"] .count`);
+    if (btn) {
+        btn.textContent = count;
+    }
+}
+
+// Video controls
+function toggleVideo(video) {
+    if (video.paused) {
+        // Pause all other videos
+        document.querySelectorAll('video').forEach(v => {
+            if (v !== video) v.pause();
+        });
+        video.play();
+    } else {
+        video.pause();
+    }
+}
+
+// Auto-play videos when they come into view
+function setupAutoPlay() {
+    const videos = document.querySelectorAll('.post-media.video');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const video = entry.target;
+            if (entry.isIntersecting) {
+                // Pause all other videos
+                document.querySelectorAll('video').forEach(v => {
+                    if (v !== video) v.pause();
+                });
+                video.play();
+                
+                // Track video view when it starts playing
+                const postId = video.dataset.postId;
+                if (postId && !video.dataset.viewTracked) {
+                    trackVideoView(postId);
+                    video.dataset.viewTracked = 'true';
+                }
+            } else {
+                video.pause();
+            }
+        });
+    }, {
+        threshold: 0.7 // Video needs to be 70% visible to start playing
+    });
+
+    videos.forEach(video => observer.observe(video));
+}
+
+// Mobile cihaz algılama fonksiyonu
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           'ontouchstart' in window || 
+           navigator.maxTouchPoints > 0;
+}
+
+// Video tıklama handler'ı
+function handleVideoClick(video) {
+    const postItem = video.closest('.post-item');
+    const postId = postItem.dataset.postId;
+    const videoSrc = video.src;
+
+    // Track video view if not already tracked
+    if (postId && !video.dataset.viewTracked) {
+        trackVideoView(postId);
+        video.dataset.viewTracked = 'true';
+    }
+
+    // Tüm videoları duraklat
+    document.querySelectorAll('video').forEach(v => {
+        v.pause();
+    });
+
+    // Video oynatıcıyı tam ekran modda aç
+    openFullscreenVideoPlayer(videoSrc, postId);
+}
+
+// Video tıklama event handler'ı
+function addVideoClickHandlers() {
+    const videos = document.querySelectorAll('.post-media.video');
+    
+    videos.forEach(video => {
+        // Mobil cihazlar için touch events
+        if (isMobile()) {
+            let touchStartTime = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            video.addEventListener('touchstart', function(e) {
+                touchStartTime = Date.now();
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                // Video otomatik oynatmayı durdur
+                video.pause();
+            }, { passive: true });
+            
+            video.addEventListener('touchend', function(e) {
+                const touchEndTime = Date.now();
+                const touchDuration = touchEndTime - touchStartTime;
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                
+                // Hareket mesafesini hesapla
+                const moveX = Math.abs(touchEndX - touchStartX);
+                const moveY = Math.abs(touchEndY - touchStartY);
+                
+                // Eğer kısa dokunma ve az hareket varsa video'yu full screen aç
+                if (touchDuration < 500 && moveX < 20 && moveY < 20) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleVideoClick(video);
+                }
+            }, { passive: false });
+            
+            video.addEventListener('touchmove', function(e) {
+                // Touch move sırasında hiçbir şey yapma, sadece kaydırmayı engelle
+                e.preventDefault();
+            }, { passive: false });
+        } else {
+            // Desktop için normal click handler
+            video.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleVideoClick(video);
+            });
+        }
+    });
+}
+
+// Sayfa yüklendiğinde ve video'lar eklendiğinde handler'ları ekle
+document.addEventListener('DOMContentLoaded', addVideoClickHandlers);
+
+// Video wrapper'a da tıklama özelliği ekle (mobil için)
+document.addEventListener('click', function(e) {
+    const videoWrapper = e.target.closest('.video-wrapper');
+    if (videoWrapper && !isMobile()) {
+        const video = videoWrapper.querySelector('video');
+        if (video && e.target !== video) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleVideoClick(video);
+        }
+    }
+});
+
+// Mobil cihazlar için video wrapper touch handler
+if (isMobile()) {
+    document.addEventListener('touchend', function(e) {
+        const videoWrapper = e.target.closest('.video-wrapper');
+        if (videoWrapper) {
+            const video = videoWrapper.querySelector('video');
+            if (video) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleVideoClick(video);
+            }
+        }
+    }, { passive: false });
+}
+
+function openFullscreenVideo(src, postId) {
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+
+    // Image göster, video gizle (normal fullscreen için)
+    video.style.display = 'none';
+    image.style.display = 'block';
+    image.src = src;
+    modal.style.display = 'flex';
+
+    if (postId) {
+        updateFullscreenActions(postId);
+        setupMediaNavigation(postId);
+    }
+}
+
+function openFullscreenVideoPlayer(src, postId) {
+    // Nells container'ı gizle
+    document.querySelector('.nells-container').style.display = 'none';
+
+    // Video player container'ı oluştur ve göster
+    showVideoPlayerOverlay(src, postId);
+}
+
+// Follow functionality
+function followUser(username) {
+    fetch('/follow_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            loadFollowStatuses();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    });
+}
+
+function loadFollowStatuses() {
+    fetch('/get_friendship_data')
+        .then(response => response.json())
+        .then(data => {
+            document.querySelectorAll('[id^="follow-btn-"]').forEach(btn => {
+                const username = btn.id.replace('follow-btn-', '');
+
+                if (data.friends && data.friends.includes(username)) {
+                    btn.textContent = 'Arkadaş';
+                    btn.className = 'follow-btn active';
+                }
+            });
+        })
+        .catch(error => console.log('Follow status error:', error));
+}
+
+// Utility functions
+function deletePost(postId) {
+    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
+        fetch('/delete_post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Gönderi silindi');
+                location.reload();
+            } else {
+                alert('❌ ' + data.error);
+            }
+        });
+    }
+}
+
+function sharePost(postId) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderi',
+            text: 'Bu gönderiyi kontrol et!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Bağlantı kopyalandı!');
+    }
+}
+
+function openFullscreen(src, postId) {
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+
+    if (!postId) {
+        // Get post ID from image element
+        const imgElement = document.querySelector(`img[src="${src}"]`);
+        if (imgElement) {
+            const postItem = imgElement.closest('.post-item');
+            postId = postItem ? postItem.dataset.postId : null;
+        }
+    }
+
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+
+    image.src = src;
+    image.style.display = 'block';
+    video.style.display = 'none';
+    modal.style.display = 'flex';
+
+    if (postId) {
+        updateFullscreenActions(postId);
+        setupMediaNavigation(postId);
+    }
+}
+
+function closeFullscreen() {
+    const modal = document.getElementById('fullscreen-modal');
+    const video = document.getElementById('fullscreen-video');
+
+    modal.style.display = 'none';
+    video.pause();
+    video.src = '';
+    currentFullscreenPostId = null;
+    mediaElements = [];
+
+    // Sayfa videoları otomatik oynatmaya devam etsin
+    setupAutoPlay();
+}
+
+function showVideoPlayerOverlay(src, postId) {
+    // Video player overlay'i oluştur
+    let videoPlayerOverlay = document.getElementById('video-player-overlay');
+
+    if (!videoPlayerOverlay) {
+        videoPlayerOverlay = document.createElement('div');
+        videoPlayerOverlay.id = 'video-player-overlay';
+        videoPlayerOverlay.className = 'video-player-overlay';
+        document.body.appendChild(videoPlayerOverlay);
+    }
+
+    videoPlayerOverlay.innerHTML = `
+        <div class="video-player-content">
+            <video id="overlay-video" class="overlay-video" autoplay loop playsinline preload="metadata">
+                <source src="${src}" type="video/mp4">
+            </video>
+            <button class="close-video-player" onclick="goToHome()">N</button>
+
+            <!-- Progress Bar -->
+            <div class="video-progress-container">
+                <div class="video-progress-bar" id="progress-bar"></div>
+            </div>
+
+            <!-- Transparent Action Buttons - Right Side -->
+            <div class="overlay-actions">
+                <button class="overlay-action-btn like-btn-overlay" onclick="toggleLikeOverlay()">
+                    <span class="icon">🤍</span>
+                    <span class="count">0</span>
+                </button>
+                <button class="overlay-action-btn comment-btn-overlay" onclick="toggleCommentsOverlay()">
+                    <span class="icon">💬</span>
+                    <span class="count">0</span>
+                </button>
+                <button class="overlay-action-btn share-btn-overlay" onclick="sharePostOverlay()">
+                    <span class="icon">📤</span>
+                </button>
+            </div>
+
+            <div class="video-navigation">
+                <button class="nav-btn prev-btn" onclick="navigateOverlayVideo(-1)">⬆️</button>
+                <button class="nav-btn next-btn" onclick="navigateOverlayVideo(1)">⬇️</button>
+            </div>
+
+            <!-- Comments Section for Overlay -->
+            <div class="overlay-comments-section" id="overlay-comments" style="display: none;">
+                <div class="overlay-comments-content">
+                    <div class="overlay-comments-header">
+                        <h3>Yorumlar</h3>
+                        <button onclick="closeOverlayComments()" class="close-overlay-comments-btn">✕</button>
+                    </div>
+                    <div class="overlay-comments-list" id="overlay-comments-list">
+                        <!-- Comments will be loaded here -->
+                    </div>
+                    ${!isGuest ? `
+                    <div class="overlay-comment-input-wrapper">
+                        <input type="text" placeholder="Yorum ekle..." class="overlay-comment-input" id="overlay-comment-input" onkeypress="handleOverlayCommentKeyPress(event)">
+                        <button onclick="addOverlayComment()" class="send-overlay-comment-btn">📤</button>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    videoPlayerOverlay.style.display = 'flex';
+
+    // Video navigation için mevcut index'i bul
+    fetch('/get_all_videos')
+        .then(response => response.json())
+        .then(data => {
+            allVideos = data.videos;
+            const currentVideoSrc = src;
+            currentVideoIndex = allVideos.findIndex(v => 
+                currentVideoSrc.includes(v.path) || v.path.includes(currentVideoSrc.split('/').pop())
+            );
+            if (currentVideoIndex === -1) currentVideoIndex = 0;
+        })
+        .catch(error => {
+            console.error('Video listesi alınamadı:', error);
+        });
+
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+
+    // Video progress bar için event listener'lar ekle
+    const overlayVideo = document.getElementById('overlay-video');
+    const progressBar = document.getElementById('progress-bar');
+
+    overlayVideo.addEventListener('timeupdate', function() {
+        if (overlayVideo.duration) {
+            const progress = (overlayVideo.currentTime / overlayVideo.duration) * 100;
+            progressBar.style.width = progress + '%';
+        }
+    });
+
+    // Progress bar'a tıklayarak video pozisyonunu değiştirme
+    document.querySelector('.video-progress-container').addEventListener('click', function(e) {
+        const rect = this.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        overlayVideo.currentTime = pos * overlayVideo.duration;
+    });
+
+    // TikTok benzeri touch gesture'ları ekle
+    setupVideoPlayerTouchGestures();
+
+    // Action butonlarını güncelle
+    updateOverlayActions(postId);
+}
+
+function closeVideoPlayer() {
+    const videoPlayerOverlay = document.getElementById('video-player-overlay');
+    const overlayVideo = document.getElementById('overlay-video');
+
+    if (videoPlayerOverlay) {
+        videoPlayerOverlay.style.display = 'none';
+        if (overlayVideo) {
+            overlayVideo.pause();
+        }
+    }
+
+    // Nells container'ı tekrar göster
+    document.querySelector('.nells-container').style.display = 'block';
+
+    // Sayfa videoları otomatik oynatmaya devam etsin
+    setupAutoPlay();
+}
+
+function updateOverlayActions(postId) {
+    if (!postId) return;
+
+    // Post verisini yükle
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                const overlayLikeBtn = document.querySelector('.like-btn-overlay');
+                const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+
+                if (overlayLikeBtn) {
+                    const isLiked = data.likes.includes(currentUser);
+                    overlayLikeBtn.querySelector('.icon').textContent = isLiked ? '❤️' : '🤍';
+                    overlayLikeBtn.querySelector('.count').textContent = data.like_count;
+                    overlayLikeBtn.classList.toggle('liked', isLiked);
+                }
+
+                if (overlayCommentBtn) {
+                    overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
+                }
+            }
+        })
+        .catch(error => console.log('Error loading overlay data:', error));
+}
+
+function toggleLikeOverlay() {
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    if (!currentFullscreenPostId) return;
+
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: currentFullscreenPostId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update overlay button
+            const overlayBtn = document.querySelector('.like-btn-overlay');
+            const icon = overlayBtn.querySelector('.icon');
+            const count = overlayBtn.querySelector('.count');
+
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            overlayBtn.classList.toggle('liked', data.liked);
+
+            // Update original button in background
+            const originalBtn = document.querySelector(`[data-post-id="${currentFullscreenPostId}"].like-btn`);
+            if (originalBtn) {
+                originalBtn.querySelector('.icon').textContent = data.liked ? '❤️' : '🤍';
+                originalBtn.querySelector('.count').textContent = data.like_count;
+                originalBtn.classList.toggle('liked', data.liked);
+            }
+
+            // Add animation
+            overlayBtn.style.transform = 'scale(1.2)';
+            setTimeout(() => overlayBtn.style.transform = 'scale(1)', 200);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Like error:', error));
+}
+
+function toggleCommentsOverlay() {
+    if (!currentFullscreenPostId) return;
+
+    const commentsSection = document.getElementById('overlay-comments');
+    const isVisible = commentsSection.style.display !== 'none';
+
+    if (isVisible) {
+        commentsSection.style.display = 'none';
+    } else {
+        loadOverlayComments(currentFullscreenPostId);
+        commentsSection.style.display = 'flex';
+    }
+}
+
+function sharePostOverlay() {
+    if (!currentFullscreenPostId) return;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderi',
+            text: 'Bu gönderiyi kontrol et!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Bağlantı kopyalandı!');
+    }
+}
+
+function loadOverlayComments(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                const commentsList = document.getElementById('overlay-comments-list');
+                commentsList.innerHTML = '';
+
+                data.comments.forEach(comment => {
+                    addOverlayCommentToDOM(comment);
+                });
+            }
+        })
+        .catch(error => console.log('Error loading overlay comments:', error));
+}
+
+function addOverlayComment() {
+    if (isGuest) {
+        alert('Yorum yapmak için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    const input = document.getElementById('overlay-comment-input');
+    const comment = input.value.trim();
+
+    if (!comment || !currentFullscreenPostId) return;
+
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            post_id: currentFullscreenPostId, 
+            comment: comment 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            addOverlayCommentToDOM(data.comment);
+
+            // Update comment count in overlay
+            const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+            if (overlayCommentBtn) {
+                overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+
+            // Update original comment count
+            const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${currentFullscreenPostId})"]`);
+            if (originalCommentBtn) {
+                originalCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Comment error:', error));
+}
+
+function addOverlayCommentToDOM(comment) {
+    const commentsList = document.getElementById('overlay-comments-list');
+    const commentElement = document.createElement('div');
+    commentElement.className = 'overlay-comment-item';
+    commentElement.innerHTML = `
+        <div class="overlay-comment-user">@${comment.username}</div>
+        <div class="overlay-comment-text">${comment.comment}</div>
+        <div class="overlay-comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
+    `;
+    commentsList.appendChild(commentElement);
+
+    // Animate new comment
+    commentElement.style.opacity = '0';
+    commentElement.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+        commentElement.style.opacity = '1';
+        commentElement.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+function handleOverlayCommentKeyPress(event) {
+    if (event.key === 'Enter') {
+        addOverlayComment();
+    }
+}
+
+function closeOverlayComments() {
+    document.getElementById('overlay-comments').style.display = 'none';
+}
+
+function goToHome() {
+    window.location.href = '/nells';
+}
+
+// TikTok benzeri touch gesture'ları için fonksiyon
+function setupVideoPlayerTouchGestures() {
+    const videoPlayerOverlay = document.getElementById('video-player-overlay');
+    if (!videoPlayerOverlay) return;
+
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let touchStartTime = 0;
+    let isScrolling = false;
+    let scrollTransition = false;
+
+    // Touch başlangıcı
+    videoPlayerOverlay.addEventListener('touchstart', function(e) {
+        // Yorum bölümü açıksa gesture'ları devre dışı bırak
+        const commentsSection = document.getElementById('overlay-comments');
+        if (commentsSection && commentsSection.style.display !== 'none') return;
+
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        touchStartTime = Date.now();
+        isScrolling = false;
+        scrollTransition = false;
+
+        // Video oynatmayı duraklat
+        const overlayVideo = document.getElementById('overlay-video');
+        if (overlayVideo) {
+            overlayVideo.pause();
+        }
+    }, { passive: true });
+
+    // Touch hareketi
+    videoPlayerOverlay.addEventListener('touchmove', function(e) {
+        // Yorum bölümü açıksa gesture'ları devre dışı bırak
+        const commentsSection = document.getElementById('overlay-comments');
+        if (commentsSection && commentsSection.style.display !== 'none') return;
+
+        if (!touchStartY) return;
+
+        const currentY = e.touches[0].clientY;
+        const currentX = e.touches[0].clientX;
+        const diffY = touchStartY - currentY;
+        const diffX = Math.abs(touchStartX - currentX);
+
+        // Yatay kaydırma çok fazlaysa dikey gesture'ı iptal et
+        if (diffX > 50) return;
+
+        // Minimum hareket mesafesi kontrolü
+        if (Math.abs(diffY) > 10) {
+            isScrolling = true;
+            e.preventDefault();
+
+            // Video container'ı kaydır
+            const translateY = Math.max(-100, Math.min(100, -diffY * 0.5));
+            videoPlayerOverlay.style.transform = `translateY(${translateY}px)`;
+
+            // Opacity efekti
+            const opacity = Math.max(0.3, 1 - Math.abs(diffY) / 500);
+            videoPlayerOverlay.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+
+            // Sonraki/önceki video önizlemesi için indicator ekle
+            showScrollIndicator(diffY);
+        }
+    }, { passive: false });
+
+    // Touch bitişi
+    videoPlayerOverlay.addEventListener('touchend', function(e) {
+        // Yorum bölümü açıksa gesture'ları devre dışı bırak
+        const commentsSection = document.getElementById('overlay-comments');
+        if (commentsSection && commentsSection.style.display !== 'none') return;
+
+        if (!touchStartY || !isScrolling) {
+            // Eğer kaydırma yoksa videoyu tekrar oynat
+            const overlayVideo = document.getElementById('overlay-video');
+            if (overlayVideo) {
+                overlayVideo.play().catch(e => console.log('Video play error:', e));
+            }
+            return;
+        }
+
+        const touchEndY = e.changedTouches[0].clientY;
+        const diffY = touchStartY - touchEndY;
+        const touchTime = Date.now() - touchStartTime;
+        const velocity = Math.abs(diffY) / touchTime;
+
+        // Reset transform ve background
+        videoPlayerOverlay.style.transform = 'translateY(0)';
+        videoPlayerOverlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        hideScrollIndicator();
+
+        // Kaydırma eşiği kontrolü (minimum 80px veya hızlı hareket)
+        const threshold = 80;
+        const fastSwipe = velocity > 0.5;
+
+        if (Math.abs(diffY) > threshold || fastSwipe) {
+            scrollTransition = true;
+            
+            if (diffY > 0) {
+                // Yukarı kaydırma = sonraki video
+                navigateOverlayVideo(1);
+            } else {
+                // Aşağı kaydırma = önceki video
+                navigateOverlayVideo(-1);
+            }
+        } else {
+            // Eşik aşılmadıysa videoyu tekrar oynat
+            const overlayVideo = document.getElementById('overlay-video');
+            if (overlayVideo) {
+                overlayVideo.play().catch(e => console.log('Video play error:', e));
+            }
+        }
+
+        // Reset değerler
+        touchStartY = 0;
+        touchStartX = 0;
+        touchStartTime = 0;
+        isScrolling = false;
+    }, { passive: true });
+}
+
+// Kaydırma yönü göstergesi
+function showScrollIndicator(diffY) {
+    let indicator = document.getElementById('scroll-indicator');
+    
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'scroll-indicator';
+        indicator.className = 'scroll-indicator';
+        document.getElementById('video-player-overlay').appendChild(indicator);
+    }
+
+    if (diffY > 30) {
+        indicator.innerHTML = '⬆️ Sonraki Video';
+        indicator.className = 'scroll-indicator next';
+    } else if (diffY < -30) {
+        indicator.innerHTML = '⬇️ Önceki Video';
+        indicator.className = 'scroll-indicator prev';
+    } else {
+        indicator.style.display = 'none';
+        return;
+    }
+
+    indicator.style.display = 'block';
+    indicator.style.opacity = Math.min(1, Math.abs(diffY) / 100);
+}
+
+function hideScrollIndicator() {
+    const indicator = document.getElementById('scroll-indicator');
+    if (indicator) {
+        indicator.style.display = 'none';
+    }
+}
+
+function navigateOverlayVideo(direction) {
+    if (allVideos.length <= 1) return;
+
+    currentVideoIndex += direction;
+
+    if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
+    if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
+
+    const nextVideoData = allVideos[currentVideoIndex];
+    const overlayVideo = document.getElementById('overlay-video');
+    const videoPlayerOverlay = document.getElementById('video-player-overlay');
+
+    if (overlayVideo && nextVideoData) {
+        // TikTok benzeri geçiş animasyonu
+        videoPlayerOverlay.style.transition = 'transform 0.3s ease-out';
+        
+        // Geçiş yönüne göre animasyon
+        const translateDirection = direction > 0 ? '-100vh' : '100vh';
+        videoPlayerOverlay.style.transform = `translateY(${translateDirection})`;
+
+        setTimeout(() => {
+            // Video'yu değiştir
+            overlayVideo.pause();
+            overlayVideo.src = '/' + nextVideoData.path;
+            
+            // Karşı yönden geri getir
+            const returnDirection = direction > 0 ? '100vh' : '-100vh';
+            videoPlayerOverlay.style.transform = `translateY(${returnDirection})`;
+            
+            setTimeout(() => {
+                // Normale döndür
+                videoPlayerOverlay.style.transform = 'translateY(0)';
+                overlayVideo.play().catch(e => console.log('Video play error:', e));
+                
+                // Post bilgilerini güncelle
+                currentFullscreenPostId = nextVideoData.post_id;
+                updateOverlayActions(nextVideoData.post_id);
+                
+                // Transition'ı kaldır
+                setTimeout(() => {
+                    videoPlayerOverlay.style.transition = 'none';
+                }, 300);
+            }, 50);
+        }, 150);
+    }
+}
+
+function updateFullscreenActions(postId) {
+    // Update like button
+    const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    const fsLikeBtn = document.querySelector('.like-btn-fs');
+
+    if (originalLikeBtn && fsLikeBtn) {
+        fsLikeBtn.dataset.postId = postId;
+        fsLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
+        fsLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
+
+        // Copy liked class if exists
+        if (originalLikeBtn.classList.contains('liked')) {
+            fsLikeBtn.classList.add('liked');
+        } else {
+            fsLikeBtn.classList.remove('liked');
+        }
+    }
+
+    // Update comment count
+    const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
+    const fsCommentBtn = document.querySelector('.comment-btn-fs');
+
+    if (originalCommentBtn && fsCommentBtn) {
+        fsCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
+    }
+}
+
+// Fullscreen action functions
+function toggleLikeFullscreen() {
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    if (currentFullscreenPostId) {
+        fetch('/like_post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: currentFullscreenPostId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update fullscreen button
+                const fsBtn = document.querySelector('.like-btn-fs');
+                const icon = fsBtn.querySelector('.icon');
+                const count = fsBtn.querySelector('.count');
+
+                icon.textContent = data.liked ? '❤️' : '🤍';
+                count.textContent = data.like_count;
+                fsBtn.classList.toggle('liked', data.liked);
+
+                // Update original button
+                const originalBtn = document.querySelector(`[data-post-id="${currentFullscreenPostId}"].like-btn`);
+                if (originalBtn) {
+                    originalBtn.querySelector('.icon').textContent = data.liked ? '❤️' : '🤍';
+                    originalBtn.querySelector('.count').textContent = data.like_count;
+                    originalBtn.classList.toggle('liked', data.liked);
+                }
+
+                // Add animation
+                fsBtn.style.transform = 'scale(1.2)';
+                setTimeout(() => fsBtn.style.transform = 'scale(1)', 200);
+            } else {
+                alert('❌ ' + data.error);
+            }
+        })
+        .catch(error => console.log('Like error:', error));
+    }
+}
+
+function toggleCommentsFullscreen() {
+    if (currentFullscreenPostId) {
+        const commentsModal = document.getElementById('fullscreen-comments');
+        const isVisible = commentsModal.style.display !== 'none';
+
+        if (isVisible) {
+            commentsModal.style.display = 'none';
+        } else {
+            loadFullscreenComments(currentFullscreenPostId);
+            commentsModal.style.display = 'flex';
+        }
+    }
+}
+
+function sharePostFullscreen() {
+    if (currentFullscreenPostId) {
+        if (navigator.share) {
+            navigator.share({
+                title: 'ChatNell Gönderi',
+                text: 'Bu gönderiyi kontrol et!',
+                url: window.location.href
+            });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Bağlantı kopyalandı!');
+        }
+    }
+}
+
+function loadFullscreenComments(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                const commentsList = document.getElementById('fullscreen-comments-list');
+                commentsList.innerHTML = '';
+
+                data.comments.forEach(comment => {
+                    addFullscreenCommentToDOM(comment);
+                });
+            }
+        })
+        .catch(error => console.log('Error loading comments:', error));
+}
+
+function addFullscreenComment() {
+    if (isGuest) {
+        alert('Yorum yapmak için giriş yapmanız gerekiyor!');
+        return;
+    }
+
+    const input = document.getElementById('fullscreen-comment-input');
+    const comment = input.value.trim();
+
+    if (!comment || !currentFullscreenPostId) return;
+
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            post_id: currentFullscreenPostId, 
+            comment: comment 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            addFullscreenCommentToDOM(data.comment);
+
+            // Update comment count in fullscreen
+            const fsCommentBtn = document.querySelector('.comment-btn-fs');
+            if (fsCommentBtn) {
+                fsCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+
+            // Update original comment count
+            const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${currentFullscreenPostId})"]`);
+            if (originalCommentBtn) {
+                originalCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Comment error:', error));
+}
+
+function addFullscreenCommentToDOM(comment) {
+    const commentsList = document.getElementById('fullscreen-comments-list');
+    const commentElement = document.createElement('div');
+    commentElement.className = 'fullscreen-comment-item';
+    commentElement.innerHTML = `
+        <div class="fullscreen-comment-user">@${comment.username}</div>
+        <div class="fullscreen-comment-text">${comment.comment}</div>
+        <div class="fullscreen-comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
+    `;
+    commentsList.appendChild(commentElement);
+
+    // Animate new comment
+    commentElement.style.opacity = '0';
+    commentElement.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+        commentElement.style.opacity = '1';
+        commentElement.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+function handleFullscreenCommentKeyPress(event) {
+    if (event.key === 'Enter') {
+        addFullscreenComment();
+    }
+}
+
+function closeFullscreenComments() {
+    document.getElementById('fullscreen-comments').style.display = 'none';
+}
+
+function setupMediaNavigation(postId) {
+    const postItem = document.querySelector(`[data-post-id="${postId}"]`);
+    mediaElements = Array.from(postItem.querySelectorAll('.post-media'));
+
+    const modal = document.getElementById('fullscreen-modal');
+    const prevArrow = modal.querySelector('.prev-arrow');
+    const nextArrow = modal.querySelector('.next-arrow');
+
+    if (mediaElements.length > 1) {
+        prevArrow.style.display = 'block';
+        nextArrow.style.display = 'block';
+
+        // Find current media index
+        const currentSrc = document.getElementById('fullscreen-image').src || document.getElementById('fullscreen-video').src;
+        currentMediaIndex = mediaElements.findIndex(el => el.src === currentSrc);
+    } else {
+        prevArrow.style.display = 'none';
+        nextArrow.style.display = 'none';
+    }
+}
+
+function setupVideoNavigation(postId) {
+    // Video listesini fetch et ve currentVideoIndex'i ayarla
+    fetch('/get_all_videos')
+        .then(response => response.json())
+        .then(data => {
+            allVideos = data.videos;
+            const currentVideoSrc = document.getElementById('fullscreen-video').src;
+            currentVideoIndex = allVideos.findIndex(v => 
+                currentVideoSrc.includes(v.path) || v.path.includes(currentVideoSrc.split('/').pop())
+            );
+            if (currentVideoIndex === -1) currentVideoIndex = 0;
+        })
+        .catch(error => {
+            console.error('Video listesi alınamadı:', error);
+        });
+}
+
+function navigateMedia(direction) {
+    if (mediaElements.length <= 1) return;
+
+    currentMediaIndex += direction;
+
+    if (currentMediaIndex < 0) currentMediaIndex = mediaElements.length - 1;
+    if (currentMediaIndex >= mediaElements.length) currentMediaIndex = 0;
+
+    const nextMedia = mediaElements[currentMediaIndex];
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+
+    if (nextMedia.tagName === 'VIDEO') {
+        image.style.display = 'none';
+        video.style.display = 'block';
+        video.src = nextMedia.src;
+    } else {
+        video.style.display = 'none';
+        image.style.display = 'block';
+        image.src = nextMedia.src;
+    }
+}
+
+// Initialize all videos for navigation
+function initializeVideoNavigation() {
+    allVideos = Array.from(document.querySelectorAll('.post-media.video'));
+}
+
+// Navigate between videos in fullscreen
+function navigateToVideo(direction) {
+    if (allVideos.length <= 1) return;
+
+    currentVideoIndex += direction;
+
+    if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
+    if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
+
+    const nextVideoData = allVideos[currentVideoIndex];
+    const video = document.getElementById('fullscreen-video');
+
+    // Video'yu değiştir
+    video.pause();
+    video.src = '/' + nextVideoData.path;
+    video.play().catch(e => console.log('Video play error:', e));
+
+    // Post bilgilerini güncelle
+    currentFullscreenPostId = nextVideoData.post_id;
+    updateFullscreenActions(nextVideoData.post_id);
+}
+
+document.getElementById('fullscreen-modal').addEventListener('touchstart', function(e) {
+    const modalTouchStartY = e.touches[0].clientY;
+    const modalTouchStartX = e.touches[0].clientX;
+    const modalSwipeStartTime = Date.now();
+
+    // Store in modal data attributes
+    e.currentTarget.dataset.touchStartY = modalTouchStartY;
+    e.currentTarget.dataset.touchStartX = modalTouchStartX;
+    e.currentTarget.dataset.swipeStartTime = modalSwipeStartTime;
+});
+
+document.getElementById('fullscreen-modal').addEventListener('touchmove', function(e) {
+    const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
+    const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
+
+    if (!modalTouchStartY || !modalTouchStartX) return;
+
+    const modalTouchCurrentY = e.touches[0].clientY;
+    const modalDiffY = modalTouchStartY - modalTouchCurrentY;
+
+    // If swiping down, add visual feedback
+    if (modalDiffY < 0 && Math.abs(modalDiffY) > 50) {
+        const modal = document.getElementById('fullscreen-modal');
+        const opacity = Math.max(0.3, 1 - (Math.abs(modalDiffY) / 300));
+        modal.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+    }
+});
+
+document.getElementById('fullscreen-modal').addEventListener('touchend', function(e) {
+    const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
+    const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
+    const modalSwipeStartTime = parseFloat(e.currentTarget.dataset.swipeStartTime);
+
+    if (!modalTouchStartY || !modalTouchStartX) return;
+
+    const modalTouchEndY = e.changedTouches[0].clientY;
+    const modalTouchEndX = e.changedTouches[0].clientX;
+    const modalSwipeTime = Date.now() - modalSwipeStartTime;
+
+    const modalDiffY = modalTouchStartY - modalTouchEndY;
+    const modalDiffX = modalTouchStartX - modalTouchEndX;
+    const modalSwipeDistance = Math.sqrt(modalDiffY * modalDiffY + modalDiffX * modalDiffX);
+    const modalSwipeSpeed = modalSwipeDistance / modalSwipeTime;
+
+    // Reset background
+    const modal = document.getElementById('fullscreen-modal');
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+
+    // Swipe down to close (like TikTok)
+    if (modalDiffY < -80 || (modalDiffY < -30 && modalSwipeSpeed > 0.5)) {
+        closeFullscreen();
+    }
+    // Swipe up/down for video navigation (like TikTok)
+    else if (Math.abs(modalDiffY) > Math.abs(modalDiffX) && Math.abs(modalDiffY) > 50) {
+        if (modalDiffY > 0) {
+            navigateToVideo(-1); // Swipe up = previous video
+        } else {
+            navigateToVideo(1); // Swipe down = next video
+        }
+    }
+    // Swipe left/right for media navigation within same post
+    else if (Math.abs(modalDiffX) > Math.abs(modalDiffY) && Math.abs(modalDiffX) > 50) {
+        if (modalDiffX > 0) {
+            navigateMedia(1); // Swipe left = next
+        } else {
+            navigateMedia(-1); // Swipe right = previous
+        }
+    }
+
+    // Clear stored values
+    e.currentTarget.dataset.touchStartY = '';
+    e.currentTarget.dataset.touchStartX = '';
+    e.currentTarget.dataset.swipeStartTime = '';
+});
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Search functionality
+document.getElementById('search-btn').addEventListener('click', function() {
+    const query = document.getElementById('search-input').value.trim();
+    if (query) {
+        // Implement search logic here
+        console.log('Searching for:', query);
+    }
+});
+
+// Video view tracking
+function trackVideoView(postId) {
+    fetch('/track_video_view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateVideoViewCount(postId, data.view_count);
+        }
+    })
+    .catch(error => console.log('Video view tracking error:', error));
+}
+
+function updateVideoViewCount(postId, viewCount) {
+    const viewCountElement = document.getElementById(`view-count-${postId}`);
+    if (viewCountElement) {
+        const numberElement = viewCountElement.querySelector('.view-number');
+        if (numberElement) {
+            numberElement.textContent = viewCount;
+        }
+    }
+}
+
+function loadVideoViewCounts() {
+    document.querySelectorAll('.video-wrapper').forEach(wrapper => {
+        const video = wrapper.querySelector('video[data-post-id]');
+        if (video) {
+            const postId = video.dataset.postId;
+            fetch(`/get_video_views/${postId}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateVideoViewCount(postId, data.view_count);
+                })
+                .catch(error => console.log('Error loading view count:', error));
+        }
+    });
+}
+
+// Auto refresh every 60 seconds
+setInterval(() => {
+    loadAllPostData();
+}, 60000);
+
+// Global audio control functions
+function toggleGlobalAudio() {
+    globalAudioEnabled = !globalAudioEnabled;
+    updateGlobalAudioButton();
+
+    // Update all videos on the page
+    document.querySelectorAll('video').forEach(video => {
+        video.muted = !globalAudioEnabled;
+    });
+}
+
+function updateGlobalAudioButton() {
+    const audioBtn = document.getElementById('global-audio-btn');
+    const audioIcon = document.getElementById('audio-icon');
+
+    if (globalAudioEnabled) {
+        audioIcon.textContent = '🔊'; // Ses açık
+    } else {
+        audioIcon.textContent = '🔇'; // Ses kapalı
+    }
+}
+
+</script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #fafafa;
+    color: #1a1a1a;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+}
+
+.nells-container {
+    max-width: 400px;
+    margin: 0 auto;
+    background: #fafafa;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-top: 60px;
+}
+
+/* Header */
+.nells-header {
+    position: sticky;
+    top: 0;
+    background: rgba(250, 250, 250, 0.9);
+    backdrop-filter: blur(20px);
+    z-index: 100;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+.left-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.nells-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.02em;
+}
+
+.search-container {
+    display: flex;
+    gap: 6px;
+}
+
+#search-input {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 6px 12px;
+    color: #1a1a1a;
+    font-size: 13px;
+    width: 140px;
+    transition: all 0.2s ease;
+}
+
+#search-input:focus {
+    outline: none;
+    border-color: #007aff;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+#search-btn {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+#search-btn:hover {
+    background: #e0e0e0;
+}
+
+.create-post-fab {
+    width: 36px;
+    height: 36px;
+    background: #007aff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 16px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.create-post-fab:hover {
+    transform: scale(1.05);
+    background: #0056cc;
+}
+
+/* Posts Feed */
+.posts-feed {
+    padding: 10px 16px 100px 16px;
+}
+
+.post-item {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    padding-right: 70px; /* Space for action buttons */
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    position: relative;
+    border: 1px solid #f0f0f0;
+}
+
+.post-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Post Header */
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.user-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #f0f0f0;
+}
+
+.avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #007aff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+}
+
+.user-info .username {
+    color: #1a1a1a;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.post-time {
+    color: #666;
+    font-size: 11px;
+    display: block;
+    margin-top: 1px;
+}
+
+.post-menu {
+    display: flex;
+    gap: 6px;
+}
+
+.menu-btn {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 16px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s ease;
+    font-size: 12px;
+}
+
+.menu-btn.delete {
+    background: #ff3b30;
+    color: #fff;
+}
+
+.menu-btn:hover {
+    background: #e0e0e0;
+}
+
+.menu-btn.delete:hover {
+    background: #d70015;
+}
+
+.follow-btn {
+    background: #007aff;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.follow-btn.active {
+    background: #34c759;
+}
+
+.follow-btn:hover {
+    opacity: 0.8;
+}
+
+/* Post Content */
+.post-content {
+    margin-bottom: 12px;
+}
+
+.content-text {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #1a1a1a;
+}
+
+/* Media */
+.media-wrapper {
+    margin-bottom: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-wrapper {
+    position: relative;
+    background: #f8f8f8;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.video-view-count {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(10px);
+    z-index: 5;
+}
+
+.view-icon {
+    font-size: 12px;
+}
+
+.view-number {
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.post-media {
+    width: 100%;
+    border-radius: 8px;
+}
+
+.post-media.video {
+    height: 320px;
+    object-fit: cover;
+    transition: all 0.2s ease;
+    -webkit-playsinline: true;
+    -webkit-appearance: none;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.post-media.video::-webkit-media-controls {
+    display: none !important;
+}
+
+.post-media.video::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
+.post-media.image {
+    max-height: 400px;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.video-wrapper:hover .video-overlay {
+    opacity: 1;
+}
+
+.play-btn {
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.image-grid {
+    display: grid;
+    gap: 2px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.image-grid.multi-image {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.tiktok-actions {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+}
+
+.tiktok-btn {
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #666;
+    font-size: 10px;
+    transition: all 0.2s ease;
+    gap: 1px;
+}
+
+.tiktok-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: scale(1.05);
+}
+
+.tiktok-btn .icon {
+    font-size: 16px;
+    display: block;
+}
+
+.tiktok-btn .count {
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.tiktok-btn.liked {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+.tiktok-btn.liked .icon {
+    color: #ff3b30;
+    animation: heartBeat 0.6s ease;
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.3); }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.follower-info {
+    color: #888;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #222;
+}
+
+/* Comments */
+.comments-section {
+    background: #f8f8f8;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    transition: all 0.2s ease;
+}
+
+.comment-item {
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+    border: 1px solid #f0f0f0;
+}
+
+.comment-user {
+    font-weight: 600;
+    color: #007aff;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.comment-text {
+    color: #1a1a1a;
+    font-size: 13px;
+    line-height: 1.3;
+    margin-bottom: 3px;
+}
+
+.comment-time {
+    color: #999;
+    font-size: 10px;
+}
+
+.comment-input-wrapper {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.comment-input {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 8px 12px;
+    color: #1a1a1a;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.comment-input:focus {
+    outline: none;
+    border-color: #007aff;
+}
+
+.send-comment-btn {
+    background: #007aff;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.send-comment-btn:hover {
+    background: #0056cc;
+}
+
+/* Scroll Controls */
+.scroll-controls {
+    position: fixed;
+    right: 16px;
+    bottom: 20px;
+    z-index: 100;
+}
+
+.scroll-btn {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    color: #1a1a1a;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.scroll-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Fullscreen Modal */
+.fullscreen-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.fullscreen-modal::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    z-index: 10002;
+}
+
+.fullscreen-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-image, .fullscreen-video {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 8px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    z-index: 10001;
+}
+
+.nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #fff;
+    font-size: 30px;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    z-index: 10001;
+    display: none;
+}
+
+.prev-arrow {
+    left: 20px;
+}
+
+.next-arrow {
+    right: 20px;
+}
+
+.fullscreen-actions {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 10001;
+}
+
+.fullscreen-action-btn {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.fullscreen-action-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.fullscreen-action-btn .icon {
+    font-size: 20px;
+}
+
+.fullscreen-action-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Video Navigation Controls */
+.fullscreen-video-nav {
+    position: absolute;
+    bottom: 100px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10001;
+}
+
+.video-nav-btn {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #1a1a1a;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.video-nav-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.05);
+}
+
+.video-nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* Empty State */
+.empty-feed {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+}
+
+.empty-feed h3 {
+    color: #1a1a1a;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.empty-feed p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.cta-btn {
+    display: inline-block;
+    background: #007aff;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.cta-btn:hover {
+    background: #0056cc;
+    transform: translateY(-1px);
+}
+
+/* Video Player Overlay */
+.video-player-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 20000;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-player-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+	muted:true;
+}
+
+.close-video-player {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    z-index: 20001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Progress Bar */
+.video-progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    z-index: 20001;
+}
+
+.video-progress-bar {
+    height: 100%;
+    background: #ff0000;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+/* Overlay Action Buttons - Right Side */
+.overlay-actions {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 20001;
+}
+
+.overlay-action-btn {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 55px;
+    height: 55px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.overlay-action-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    transform: scale(1.1);
+}
+
+.overlay-action-btn .icon {
+    font-size: 22px;
+    display: block;
+}
+
+.overlay-action-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.overlay-action-btn.liked {
+    background: rgba(255, 71, 87, 0.3);
+}
+
+.overlay-action-btn.liked .icon {
+    color: #ff4757;
+    animation: heartBeat 0.6s ease;
+}
+
+.video-navigation {
+    position: absolute;
+    bottom: 120px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 20001;
+}
+
+.nav-btn {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 18px;
+    cursor: pointer;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+    color: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* Fullscreen Comments Modal */
+.fullscreen-comments {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 20000;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-comments-content {
+    background: #111;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    height: 80%;
+    max-height: 600px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.fullscreen-comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.fullscreen-comments-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-comments-btn {
+    background: #333;
+    border: none;
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-comments-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background: #111;
+}
+
+.fullscreen-comment-item {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.fullscreen-comment-user {
+    font-weight: 600;
+    color: #4ecdc4;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.fullscreen-comment-text {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.fullscreen-comment-time {
+    color: #666;
+    font-size: 11px;
+}
+
+.fullscreen-comment-input-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 15px;
+    border-top: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.fullscreen-comment-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.fullscreen-comment-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.send-fullscreen-comment-btn {
+    background: #4ecdc4;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.send-fullscreen-comment-btn:hover {
+    background: #45b7b8;
+    transform: scale(1.05);
+}
+
+/* Overlay Comments Section */
+.overlay-comments-section {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 400px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    z-index: 20002;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-comments-content {
+    background: #111;
+    border-radius: 16px;
+    width: 90%;
+    height: 80%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.overlay-comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.overlay-comments-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-overlay-comments-btn {
+    background: #333;
+    border: none;
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-comments-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background: #111;
+}
+
+.overlay-comment-item {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.overlay-comment-user {
+    font-weight: 600;
+    color: #4ecdc4;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.overlay-comment-text {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.overlay-comment-time {
+    color: #666;
+    font-size: 11px;
+}
+
+.overlay-comment-input-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 15px;
+    border-top: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.overlay-comment-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.overlay-comment-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.send-overlay-comment-btn {
+    background: #4ecdc4;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.send-overlay-comment-btn:hover {
+    background: #45b7b8;
+    transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .nells-container {
+        max-width: 100%;
+    }
+
+    .post-item {
+        padding: 15px;
+        padding-right: 70px; /* Adjust for smaller screens */
+    }
+
+    .tiktok-actions {
+        right: 10px;
+        gap: 12px;
+    }
+
+    .tiktok-btn {
+        width: 45px;
+        height: 45px;
+    }
+
+    .tiktok-btn .icon {
+        font-size: 18px;
+    }
+
+    .search-container input {
+        width: 120px;
+    }
+
+    .close-video-player {
+        top: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+
+    .video-navigation {
+        bottom: 100px;
+        right: 15px;
+        gap: 8px;
+    }
+
+    .nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .overlay-comments-section {
+        width: 100%;
+        left: 0;
+    }
+
+    .overlay-comments-content {
+        width: 95%;
+        height: 85%;
+    }
+}
+
+/* Ses kontrol butonu */
+.audio-control {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+}
+
+.audio-btn {
+    background: rgba(255, 255, 255, 0.8);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: #1a1a1a;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.audio-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Dokunmatik İyileştirmeleri */
+video {
+    touch-action: manipulation; /* Kaydırmayı etkinleştir */
+    -webkit-touch-callout: none; /* iOS'ta uzun basma menüsünü engelle */
+    -webkit-user-select: none; /* Metin seçimini engelle */
+    user-select: none;
+}
+
+.post-media.video {
+    cursor: pointer;
+    position: relative;
+}
+
+/* Mobil cihazlarda video dokunma optimizasyonu */
+@media (max-width: 768px) {
+    .video-wrapper {
+        position: relative;
+        touch-action: manipulation;
+    }
+    
+    .post-media.video {
+        pointer-events: auto;
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    
+    .video-overlay {
+        pointer-events: none;
+    }
+}
+
+/* TikTok benzeri kaydırma göstergesi */
+.scroll-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 15px 25px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: 600;
+    z-index: 25000;
+    display: none;
+    backdrop-filter: blur(10px);
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.scroll-indicator.next {
+    background: rgba(34, 197, 94, 0.8);
+}
+
+.scroll-indicator.prev {
+    background: rgba(59, 130, 246, 0.8);
+}
+
+/* Video player overlay touch optimizasyonları */
+.video-player-overlay {
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: none;
+}
+
+.overlay-video {
+    touch-action: none;
+    pointer-events: none;
+}
+
+/* Video geçiş animasyonları için */
+.video-player-overlay.transitioning {
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+</style>
+{% endblock %}

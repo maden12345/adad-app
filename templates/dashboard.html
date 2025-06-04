@@ -1,0 +1,962 @@
+{% extends "base.html" %}
+
+{% block title %}Ana Sayfa - ChatNell{% endblock %}
+
+{% block content %}
+<!-- Bildirim Sistemi -->
+<div id="notification-container" style="position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1000; max-width: 400px; width: 90%;"></div>
+
+<!-- Bildirim Paneli -->
+
+
+
+<!-- Ses Odaları Butonu -->
+<div style="text-align: center; margin: 20px 0;">
+    <button onclick="toggleVoiceRooms()" id="voice-rooms-btn" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.3)'">
+        🎤 Ses Odaları
+    </button>
+</div>
+
+<!-- Ses Odaları Panel (Gizli) -->
+<div id="voice-rooms-panel" style="display: none; margin-bottom: 20px;">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="font-size: 20px; font-weight: 600; color: #1a1a1a; margin: 0;">🎤 Ses Odaları</h3>
+            <button onclick="createVoiceRoom()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">
+                Ses Odası Oluştur
+            </button>
+        </div>
+
+        <!-- Arama Kutusu -->
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="voice-room-search" placeholder="🔍 Ses odası ara..." style="width: 100%; padding: 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; background: #fafafa;" oninput="searchVoiceRooms()">
+        </div>
+
+        <div id="voice-rooms-container" style="min-height: 100px;">
+            <div style="text-align: center; color: #666; font-size: 14px; padding: 20px;">Henüz ses odası yok</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a;">🔍 Arkadaş Edin</h3>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="user-search" placeholder="🔍 Kullanıcı ara..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; background: #fafafa;" oninput="searchUsers()">
+    </div>
+    <div id="search-results" style="min-height: 40px;">
+        <div style="text-align: center; color: #666; font-size: 14px;">Arkadaş edinmek için kullanıcı arayın</div>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5;">
+        <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: #1a1a1a;">👥 Ekle</h4>
+        <div id="recent-users" style="min-height: 40px;">
+            <div style="text-align: center; color: #666; font-size: 14px;">Yükleniyor...</div>
+        </div>
+
+        <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a;">🟢 Çevrimiçi Arkadaşlar</h3>
+        <div id="online-friends" style="min-height: 40px;">
+            <div style="text-align: center; color: #666; font-size: 14px;">Yükleniyor...</div>
+        </div>
+
+        <!-- Çevrimdışı Arkadaşlar -->
+        <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a;">⚫ Çevrimdışı Arkadaşlar</h3>
+        <div id="offline-friends" style="min-height: 40px;">
+            <div style="text-align: center; color: #666; font-size: 14px;">Yükleniyor...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Nells Bölümü -->
+<div class="card">
+    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a;">📱 Nells</h3>
+    <div style="text-align: center; margin-bottom: 16px;">
+        <a href="{{ url_for('nells') }}" style="display: inline-block; background: linear-gradient(135deg, #1a1a1a, #333); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+            📱 Nells'leri Keşfet
+        </a>
+    </div>
+    <p style="color: #666; font-size: 14px; text-align: center;">Kullanıcıların paylaştığı gönderileri keşfedin</p>
+</div>
+
+<script>
+
+
+function loadFriends() {
+    fetch('/get_friendship_data')
+        .then(response => response.json())
+        .then(data => {
+            const onlineFriendsDiv = document.getElementById('online-friends');
+            const offlineFriendsDiv = document.getElementById('offline-friends');
+
+            if (!data.friends || data.friends.length === 0) {
+                onlineFriendsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Arkadaş listeniz boş</div>';
+                offlineFriendsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Arkadaş listeniz boş</div>';
+                return;
+            }
+
+            Promise.all(data.friends.map(username => 
+                fetch(`/get_user_status/${username}`)
+                    .then(response => response.json())
+                    .then(status => ({ username, status: status.status }))
+            ))
+            .then(friendsWithStatus => {
+                const onlineFriends = friendsWithStatus.filter(friend => friend.status === 'online');
+                const offlineFriends = friendsWithStatus.filter(friend => friend.status !== 'online');
+
+                if (onlineFriends.length === 0) {
+                    onlineFriendsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Çevrimiçi arkadaş yok</div>';
+                } else {
+                    onlineFriendsDiv.innerHTML = onlineFriends.map(friend => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; cursor: pointer;" onclick="window.location.href='/profile/${friend.username}'">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div id="profile-${friend.username}" style="width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
+                                    ${friend.username[0].toUpperCase()}
+                                </div>
+                                <div>
+                                    <span style="font-weight: 500; color: #1a1a1a; font-size: 14px;">${friend.username}</span>
+                                    <div style="font-size: 12px; color: #22c55e;">🟢 Çevrimiçi</div>
+                                </div>
+                            </div>
+                            <a href="/chat/${friend.username}" style="background: #1a1a1a; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500;" onclick="event.stopPropagation();">Mesaj</a>
+                        </div>
+                    `).join('');
+                }
+
+                if (offlineFriends.length === 0) {
+                    offlineFriendsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Çevrimdışı arkadaş yok</div>';
+                } else {
+                    offlineFriendsDiv.innerHTML = offlineFriends.map(friend => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;" onclick="window.location.href='/profile/${friend.username}'" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#fafafa'">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div id="profile-offline-${friend.username}" style="width: 32px; height: 32px; border-radius: 50%; background: #999; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
+                                    ${friend.username[0].toUpperCase()}
+                                </div>
+                                <div>
+                                    <span style="font-weight: 500; color: #1a1a1a; font-size: 14px;">${friend.username}</span>
+                                    <div style="font-size: 12px; color: #999;">⚫ Çevrimdışı</div>
+                                </div>
+                            </div>
+                            <a href="/chat/${friend.username}" style="background: #666; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500;" onclick="event.stopPropagation();">Mesaj</a>
+                        </div>
+                    `).join('');
+                }
+            });
+        });
+}
+
+function searchUsers() {
+    const query = document.getElementById('user-search').value.trim();
+    const resultsDiv = document.getElementById('search-results');
+
+    if (query.length < 2) {
+        resultsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">En az 2 karakter girin</div>';
+        return;
+    }
+
+    fetch(`/search_users?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(users => {
+            if (users.length === 0) {
+                resultsDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Kullanıcı bulunamadı</div>';
+                return;
+            }
+
+            document.getElementById('search-results').innerHTML = users.map(user => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;" onclick="window.location.href='/profile/${user.username}'" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#fafafa'">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div id="search-profile-${user.username}" style="width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
+                            ${user.username[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <span style="font-weight: 500; color: #1a1a1a; font-size: 14px;">${user.username}</span>
+                            <div style="font-size: 12px; color: #666;">${user.followers_count} takipçi</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <a href="/profile/${user.username}" style="background: #f5f5f5; color: #1a1a1a; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500;" onclick="event.stopPropagation();">Profil</a>
+                        <button onclick="event.stopPropagation(); sendFriendRequestFromSearch('${user.username}')" style="background: #1a1a1a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">İstek Gönder</button>
+                    </div>
+                </div>
+            `).join('');
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = '<div style="text-align: center; color: #ff4757; font-size: 14px;">Arama sırasında hata oluştu</div>';
+        });
+}
+
+function sendFriendRequestFromSearch(username) {
+    fetch('/send_friend_request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message || data.error);
+        if (data.success) {
+            searchUsers();
+        }
+    });
+}
+
+function loadRecentUsers() {
+    // Arkadaş listesini ve tüm kullanıcıları al
+    Promise.all([
+        fetch('/get_friendship_data').then(response => response.json()),
+        fetch('/get_all_users').then(response => response.json())
+    ])
+    .then(([friendshipData, allUsers]) => {
+        const recentUsersDiv = document.getElementById('recent-users');
+        const friends = friendshipData.friends || [];
+
+        // Arkadaş olmayan kullanıcıları filtrele
+        const nonFriendUsers = allUsers.filter(user => !friends.includes(user.username));
+
+        if (nonFriendUsers.length === 0) {
+            recentUsersDiv.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px;">Eklenecek kullanıcı yok</div>';
+            return;
+        }
+
+        recentUsersDiv.innerHTML = nonFriendUsers.map(user => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;" onclick="window.location.href='/profile/${user.username}'" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#fafafa'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="recent-profile-${user.username}" style="width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
+                        ${user.username[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <span style="font-weight: 500; color: #1a1a1a; font-size: 14px;">${user.username}</span>
+                        <div style="font-size: 12px; color: #666;">${user.created_at}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <a href="/profile/${user.username}" style="background: #f5f5f5; color: #1a1a1a; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500;" onclick="event.stopPropagation();">Profil</a>
+                    <button onclick="sendFriendRequestFromUsers('${user.username}')" style="background: #1a1a1a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;"  onclick="event.stopPropagation();">İstek Gönder</button>
+                </div>
+            </div>
+        `).join('');
+    })
+    .catch(error => {
+        const recentUsersDiv = document.getElementById('recent-users');
+        recentUsersDiv.innerHTML = '<div style="text-align: center; color: #ff4757; font-size: 14px;">Kullanıcılar yüklenirken hata oluştu</div>';
+    });
+}
+
+function sendFriendRequestFromUsers(username) {
+    fetch('/send_friend_request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message || data.error);
+        if (data.success) {
+            loadRecentUsers(); // Listeyi yenile
+            loadFriends(); // Arkadaş listesini de yenile
+        }
+    });
+}
+
+
+
+// Panel dışına tıklandığında kapat
+document.addEventListener('click', function(e) {
+    const panel = document.getElementById('notification-panel');
+    const bell = document.getElementById('notification-bell');
+
+    if (panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
+        panel.style.display = 'none';
+    }
+});
+
+function loadProfilePhotos() {
+    // Tüm kullanıcıların profil fotoğraflarını yükle (arkadaş olmasalar bile)
+    document.querySelectorAll('[id^="profile-"], [id^="search-profile-"], [id^="recent-profile-"]').forEach(element => {
+        const username = element.id.replace('profile-', '').replace('search-profile-', '').replace('recent-profile-', '').replace('offline-', '');
+
+        fetch(`/get_user_info/${username}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.profile_photo) {
+                    element.innerHTML = `<img src="/static/${data.profile_photo}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    // Profil fotoğrafı yoksa varsayılan avatar kalsın
+                    element.innerHTML = username[0].toUpperCase();
+                }
+            })
+            .catch(error => {
+                // Hata durumunda varsayılan avatar kalsın
+                console.log('Profile photo load error for', username);
+            });
+    });
+}
+
+// Voice rooms toggle functionality
+function toggleVoiceRooms() {
+    const panel = document.getElementById('voice-rooms-panel');
+    const btn = document.getElementById('voice-rooms-btn');
+
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a52)';
+        btn.innerHTML = '🎤 Ses Odaları ✕';
+        loadVoiceRooms();
+    } else {
+        panel.style.display = 'none';
+        btn.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+        btn.innerHTML = '🎤 Ses Odaları';
+    }
+}
+
+// Voice rooms functionality
+function createVoiceRoom() {
+    showCreateRoomModal();
+}
+
+function showCreateRoomModal() {
+    const modal = `
+        <div id="create-room-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🎤 Ses Odası Oluştur</h3>
+                <input type="text" id="room-name-input" placeholder="Ses odası ismini girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;" maxlength="50">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmCreateRoom()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeCreateRoomModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    // Focus on input and select text
+    const input = document.getElementById('room-name-input');
+    input.focus();
+
+    // Enter tuşu ile oluştur
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            confirmCreateRoom();
+        }
+    });
+}
+
+function closeCreateRoomModal() {
+    const modal = document.getElementById('create-room-modal');
+    if (modal) modal.remove();
+}
+
+function confirmCreateRoom() {
+    const roomName = document.getElementById('room-name-input').value.trim();
+    if (!roomName) {
+        showErrorModal('Ses odası ismi gerekli');
+        return;
+    }
+
+    fetch('/create_voice_room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: roomName.trim() })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeCreateRoomModal();
+            loadVoiceRooms();
+            showSuccessModal('✅ ' + data.message);
+        } else {
+            showErrorModal('❌ ' + (data.error || 'Ses odası oluşturulamadı'));
+        }
+    })
+    .catch(error => {
+        console.error('Error creating voice room:', error);
+        showErrorModal('❌ Bir hata oluştu');
+    });
+}
+
+// Global variable to store all voice rooms for search
+let allVoiceRooms = [];
+
+function loadVoiceRooms() {
+    fetch('/get_voice_rooms')
+        .then(response => response.json())
+        .then(rooms => {
+            allVoiceRooms = rooms; // Store all rooms globally
+            displayVoiceRooms(rooms);
+        })
+        .catch(error => {
+            console.error('Error loading voice rooms:', error);
+            document.getElementById('voice-rooms-container').innerHTML = '<div style="text-align: center; color: #ff4757; font-size: 14px; padding: 20px;">Ses odaları yüklenirken hata oluştu</div>';
+        });
+}
+
+function displayVoiceRooms(rooms) {
+    const container = document.getElementById('voice-rooms-container');
+
+    if (rooms.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #666; font-size: 14px; padding: 20px;">Henüz ses odası yok</div>';
+        return;
+    }
+
+    container.innerHTML = rooms.map(room => `
+                <div style="border: 1px solid #e5e5e5; border-radius: 8px; padding: 15px; margin-bottom: 12px; background: #fafafa;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 16px; color: #1a1a1a;">🎤 ${room.name}</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="showAddChannelMenu(${room.id})" style="background: #4ecdc4; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">+ Ekle</button>
+                            ${room.creator === '{{ session.username }}' ? `<button onclick="deleteVoiceRoom(${room.id})" style="background: #ff4757; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">Sil</button>` : ''}
+                        </div>
+                    </div>
+                    <div id="channels-${room.id}">
+                        ${room.channels.map(channel => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid ${channel.is_private ? '#ff6b6b' : '#4ecdc4'};">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 14px;">${channel.is_private ? '🔒' : '🔊'} ${channel.name}</span>
+                                    <span style="font-size: 12px; color: #666;">(${channel.users.length} kişi)</span>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    ${channel.users.includes('{{ session.username }}') ? 
+                                        `<button onclick="leaveVoiceChannel(${room.id}, ${channel.id})" style="background: #ff4757; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Çık</button>` :
+                                        `<button onclick="joinVoiceChannel(${room.id}, ${channel.id}, ${channel.is_private})" style="background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Katıl</button>`
+                                    }
+                                    ${(room.creator === '{{ session.username }}' || channel.creator === '{{ session.username }}') ? `<button onclick="deleteVoiceChannel(${room.id}, ${channel.id})" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Sil</button>` : ''}
+                                </div>
+                            </div>
+                            ${channel.users.length > 0 ? `
+                                <div style="padding: 8px 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 6px; margin-left: 20px;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Odadaki kullanıcılar:</div>
+                                    ${channel.users.map(user => `
+                                        <div style="display: inline-block; background: #4ecdc4; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-right: 4px; margin-bottom: 2px;">
+                                            🎤 ${user}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+}
+
+function searchVoiceRooms() {
+    const query = document.getElementById('voice-room-search').value.trim().toLowerCase();
+    
+    if (query === '') {
+        // Eğer arama kutusu boşsa, tüm odaları göster
+        displayVoiceRooms(allVoiceRooms);
+        return;
+    }
+
+    // Arama sorgusuna göre filtrele
+    const filteredRooms = allVoiceRooms.filter(room => 
+        room.name.toLowerCase().includes(query)
+    );
+
+    if (filteredRooms.length === 0) {
+        document.getElementById('voice-rooms-container').innerHTML = '<div style="text-align: center; color: #666; font-size: 14px; padding: 20px;">Arama sonucu bulunamadı</div>';
+    } else {
+        displayVoiceRooms(filteredRooms);
+    }
+}
+
+function showAddChannelMenu(roomId) {
+    const options = `
+        <div id="add-channel-menu" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 10000;">
+            <h4 style="margin: 0 0 15px 0; color: #1a1a1a;">Ses Kanalı Ekle</h4>
+            <input type="text" id="channel-name" placeholder="Kanal ismi" style="width: 100%; padding: 8px; border: 1px solid #e5e5e5; border-radius: 6px; margin-bottom: 12px;">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="addVoiceChannel(${roomId}, false)" style="background: #4ecdc4; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; flex: 1;">🔊 Normal Kanal</button>
+                <button onclick="addVoiceChannel(${roomId}, true)" style="background: #ff6b6b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; flex: 1;">🔒 Şifreli Kanal</button>
+            </div>
+            <button onclick="closeAddChannelMenu()" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px;">İptal</button>
+        </div>
+        <div id="add-channel-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;" onclick="closeAddChannelMenu()"></div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', options);
+}
+
+function closeAddChannelMenu() {
+    const menu = document.getElementById('add-channel-menu');
+    const overlay = document.getElementById('add-channel-overlay');
+    if (menu) menu.remove();
+    if (overlay) overlay.remove();
+}
+
+function addVoiceChannel(roomId, isPrivate) {
+    const channelName = document.getElementById('channel-name').value.trim();
+    if (!channelName) {
+        showErrorModal('Kanal ismi gerekli');
+        return;
+    }
+
+    if (isPrivate) {
+        showCreateChannelPasswordModal(roomId, channelName);
+    } else {
+        performCreateChannel(roomId, channelName, false, null);
+    }
+}
+
+function showCreateChannelPasswordModal(roomId, channelName) {
+    const modal = `
+        <div id="create-password-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">🔒 Şifreli Kanal Oluştur</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 20px;">Bu kanal için bir şifre belirleyin</p>
+                <input type="password" id="create-channel-password-input" placeholder="Kanal şifresini girin..." style="width: 100%; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="submitCreateChannelPassword(${roomId}, '${channelName}')" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">Oluştur</button>
+                    <button onclick="closeCreatePasswordModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    // Focus on input and select text
+    const input = document.getElementById('create-channel-password-input');
+    input.focus();
+
+    // Enter tuşu ile oluştur
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitCreateChannelPassword(roomId, channelName);
+        }
+    });
+}
+
+function closeCreatePasswordModal() {
+    const modal = document.getElementById('create-password-modal');
+    if (modal) modal.remove();
+}
+
+function submitCreateChannelPassword(roomId, channelName) {
+    const password = document.getElementById('create-channel-password-input').value.trim();
+    if (!password) {
+        showErrorModal('Şifre gerekli');
+        return;
+    }
+
+    closeCreatePasswordModal();
+    closeAddChannelMenu();
+    performCreateChannel(roomId, channelName, true, password);
+}
+
+function performCreateChannel(roomId, channelName, isPrivate, password) {
+    fetch('/add_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            room_id: roomId, 
+            name: channelName,
+            is_private: isPrivate,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+        } else {
+            alert(data.error || 'Kanal oluşturulamadı');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding channel:', error);
+        alert('Bir hata oluştu');
+    });
+}
+
+function joinVoiceChannel(roomId, channelId, isPrivate) {
+    let password = null;
+    if (isPrivate) {
+        password = prompt('Kanal şifresi:');
+        if (!password) return;
+    }
+
+    fetch('/join_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            room_id: roomId, 
+            channel_id: channelId,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+            startVoiceChat(roomId, channelId);
+        } else {
+            alert(data.error || 'Kanala katılamadınız');
+        }
+    })
+    .catch(error => {
+        console.error('Error joining channel:', error);
+        alert('Bir hata oluştu');
+    });
+}
+
+function leaveVoiceChannel(roomId, channelId) {
+    fetch('/leave_voice_channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_id: roomId, channel_id: channelId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadVoiceRooms();
+            stopVoiceChat();
+        }
+    });
+}
+
+function deleteVoiceChannel(roomId, channelId) {
+    showDeleteConfirmModal('Bu ses kanalını silmek istediğinizden emin misiniz?', function() {
+        fetch('/delete_voice_channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId, channel_id: channelId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadVoiceRooms();
+            }
+        });
+    });
+}
+
+function deleteVoiceRoom(roomId) {
+    showDeleteConfirmModal('Bu ses odasını silmek istediğinizden emin misiniz?', function() {
+        fetch('/delete_voice_room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadVoiceRooms();
+            }
+        });
+    });
+}
+
+function showDeleteConfirmModal(message, onConfirm) {
+    const modal = `
+        <div id="delete-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; text-align: center;">⚠️ Silme Onayı</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="confirmDelete()" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">🗑️ Sil</button>
+                    <button onclick="closeDeleteConfirmModal()" style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 600;">İptal</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+
+    // Store the callback function globally
+    window.currentDeleteCallback = onConfirm;
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('delete-confirm-modal');
+    if (modal) modal.remove();
+    window.currentDeleteCallback = null;
+}
+
+function confirmDelete() {
+    if (window.currentDeleteCallback) {
+        window.currentDeleteCallback();
+    }
+    closeDeleteConfirmModal();
+}
+
+function showErrorModal(message) {
+    const modal = `
+        <div id="error-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #ff4757; text-align: center;">❌ Hata</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="text-align: center;">
+                    <button onclick="closeErrorModal()" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">Tamam</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('error-modal');
+    if (modal) modal.remove();
+}
+
+function showSuccessModal(message) {
+    const modal = `
+        <div id="success-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+                <h3 style="margin: 0 0 20px 0; color: #27ae60; text-align: center;">✅ Başarılı</h3>
+                <p style="color: #666; text-align: center; margin-bottom: 25px; line-height: 1.4;">${message}</p>
+                <div style="text-align: center;">
+                    <button onclick="closeSuccessModal()" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">Tamam</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function closeSuccessModal() {
+    const modal = document.getElementById('success-modal');
+    if (modal) modal.remove();
+}
+
+// WebRTC Voice Chat
+let localStream;
+let peerConnections = {};
+let currentChannel = null;
+
+async function startVoiceChat(roomId, channelId) {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        currentChannel = { roomId, channelId };
+
+        // Socket ile diğer kullanıcılara bağlan
+        socket.emit('join_voice_channel', { room_id: roomId, channel_id: channelId });
+
+    } catch (error) {
+        console.error('Mikrofon erişimi reddedildi:', error);
+        alert('Mikrofon erişimi gerekli');
+    }
+}
+
+function stopVoiceChat() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    Object.values(peerConnections).forEach(pc => pc.close());
+    peerConnections = {};
+
+    if (currentChannel) {
+        socket.emit('leave_voice_channel', currentChannel);
+        currentChannel = null;
+    }
+}
+
+// Socket events for voice chat
+if (typeof socket !== 'undefined') {
+    socket.on('user_joined_voice', async (data) => {
+        if (currentChannel && data.user !== '{{ session.username }}') {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            peerConnections[data.user] = pc;
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            pc.ontrack = (event) => {
+                const audio = new Audio();
+                audio.srcObject = event.streams[0];
+                audio.play();
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            socket.emit('voice_offer', {
+                target: data.user,
+                offer: offer,
+                channel: currentChannel
+            });
+        }
+    });
+
+    socket.on('voice_offer', async (data) => {
+        if (currentChannel) {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            peerConnections[data.from] = pc;
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            pc.ontrack = (event) => {
+                const audio = new Audio();
+                audio.srcObject = event.streams[0];
+                audio.play();
+            };
+
+            await pc.setRemoteDescription(data.offer);
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            socket.emit('voice_answer', {
+                target: data.from,
+                answer: answer,
+                channel: currentChannel
+            });
+        }
+    });
+
+    socket.on('voice_answer', async (data) => {
+        if (peerConnections[data.from]) {
+            await peerConnections[data.from].setRemoteDescription(data.answer);
+        }
+    });
+
+    socket.on('user_left_voice', (data) => {
+        if (peerConnections[data.user]) {
+            peerConnections[data.user].close();
+            delete peerConnections[data.user];
+        }
+    });
+}
+
+// Sayfa içi bildirim gösterme fonksiyonu
+function showPageNotification(data) {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        margin-bottom: 10px;
+        animation: slideInTop 0.4s ease-out;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    `;
+
+    let title = 'Bildirim';
+    let icon = '🔔';
+
+    if (data.type === 'message') {
+        title = 'Yeni Mesaj';
+        icon = '💬';
+        notification.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a52)';
+    } else if (data.type === 'like') {
+        title = 'Yeni Beğeni';
+        icon = '❤️';
+        notification.style.background = 'linear-gradient(135deg, #ff9ff3, #f368e0)';
+    } else if (data.type === 'comment') {
+        title = 'Yeni Yorum';
+        icon = '💬';
+        notification.style.background = 'linear-gradient(135deg, #54a0ff, #2e86de)';
+    } else if (data.type === 'friend_accepted') {
+        title = 'Arkadaşlık Kabul Edildi';
+        icon = '🤝';
+        notification.style.background = 'linear-gradient(135deg, #5f27cd, #341f97)';
+    }
+
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 24px;">${icon}</div>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${title}</div>
+                <div style="font-size: 13px; opacity: 0.9; line-height: 1.3;">${data.message}</div>
+            </div>
+            <div style="font-size: 20px; opacity: 0.7; cursor: pointer;" onclick="event.stopPropagation(); removeNotification(this.parentElement.parentElement)">×</div>
+        </div>
+        <div style="position: absolute; bottom: 0; left: 0; height: 3px; background: rgba(255,255,255,0.3); animation: progressBar 5s linear;"></div>
+    `;
+
+    notification.onclick = function() {
+        removeNotification(notification);
+        if (data.type === 'message') {
+            window.location.href = '/messages';
+        } else if (data.type === 'like' || data.type === 'comment') {
+            window.location.href = '/nells';
+        } else if (data.type === 'friend_accepted') {
+            window.location.href = '/dashboard';
+        }
+    };
+
+    container.appendChild(notification);
+
+    // 5 saniye sonra otomatik kaldır
+    setTimeout(() => {
+        if (notification.parentNode) {
+            removeNotification(notification);
+        }
+    }, 5000);
+}
+
+function removeNotification(notification) {
+    notification.style.animation = 'slideOutTop 0.3s ease-in';
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 300);
+}
+
+// Socket bağlantısı için bildirim dinleyicisi ekle
+if (typeof socket !== 'undefined') {
+    socket.on('new_notification', function(data) {
+        console.log('New notification received:', data);
+        showPageNotification(data);
+    });
+}
+
+// Sayfa yüklendiğinde verileri yükle
+document.addEventListener('DOMContentLoaded', function() {
+    loadFriends();
+    loadRecentUsers();
+
+    // Profil fotoğraflarını yüklemek için kısa bir gecikme ekle
+    setTimeout(() => {
+        loadProfilePhotos();
+    }, 1000);
+
+    // CSS animasyonlarını ekle
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInTop {
+            from { 
+                transform: translateY(-100px); 
+                opacity: 0; 
+            }
+            to { 
+                transform: translateY(0); 
+                opacity: 1; 
+            }
+        }
+        @keyframes slideOutTop {
+            from { 
+                transform: translateY(0); 
+                opacity: 1; 
+            }
+            to { 
+                transform: translateY(-100px); 
+                opacity: 0; 
+            }
+        }
+        @keyframes progressBar {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,485 @@
+
+{% extends "base.html" %}
+
+{% block title %}Video Player - ChatNell{% endblock %}
+
+{% block content %}
+<div class="video-player-container">
+    <div class="video-wrapper">
+        <video id="main-video" controls autoplay loop>
+            <source src="" type="video/mp4">
+            Tarayıcınız video oynatmayı desteklemiyor.
+        </video>
+    </div>
+    
+    <!-- Navigation Controls -->
+    <div class="video-controls">
+        <button id="prev-video" class="control-btn">⬆️</button>
+        <button id="next-video" class="control-btn">⬇️</button>
+        <button id="close-player" class="control-btn close-btn">✕</button>
+    </div>
+    
+    <!-- Video Info -->
+    <div class="video-info">
+        <div class="user-info">
+            <img id="user-avatar" src="" alt="" class="avatar">
+            <span id="username">@username</span>
+        </div>
+        <p id="video-content"></p>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="video-actions">
+        <button id="like-btn" class="action-btn">
+            <span class="icon">🤍</span>
+            <span class="count">0</span>
+        </button>
+        <button id="comment-btn" class="action-btn">
+            <span class="icon">💬</span>
+            <span class="count">0</span>
+        </button>
+        <button id="share-btn" class="action-btn">
+            <span class="icon">📤</span>
+        </button>
+    </div>
+</div>
+
+<script>
+let currentVideoIndex = 0;
+let allVideos = [];
+let currentPost = null;
+
+// URL'den parametreleri al
+const urlParams = new URLSearchParams(window.location.search);
+const videoSrc = urlParams.get('video');
+const postId = urlParams.get('post');
+const videoIndex = parseInt(urlParams.get('index')) || 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadVideoData();
+    setupControls();
+    setupKeyboardControls();
+});
+
+function loadVideoData() {
+    // Video listesini yükle
+    fetch('/get_all_videos')
+        .then(response => response.json())
+        .then(data => {
+            allVideos = data.videos;
+            currentVideoIndex = videoIndex;
+            
+            if (allVideos.length > 0) {
+                playVideo(currentVideoIndex);
+            }
+        })
+        .catch(error => {
+            console.error('Video verileri yüklenemedi:', error);
+            // Fallback: direkt videoyu oynat
+            if (videoSrc) {
+                document.getElementById('main-video').src = '/' + videoSrc;
+                loadPostData(postId);
+            }
+        });
+}
+
+function playVideo(index) {
+    if (index < 0 || index >= allVideos.length) return;
+    
+    const video = allVideos[index];
+    const videoElement = document.getElementById('main-video');
+    
+    videoElement.src = '/' + video.path;
+    currentPost = video;
+    
+    // Video bilgilerini güncelle
+    updateVideoInfo(video);
+    updateActionButtons(video.post_id);
+    
+    // Video oynatmaya başla
+    videoElement.play().catch(e => console.log('Video play error:', e));
+}
+
+function updateVideoInfo(video) {
+    document.getElementById('username').textContent = '@' + video.username;
+    document.getElementById('video-content').textContent = video.content;
+    
+    // Avatar güncelle
+    fetch('/get_user_info/' + video.username)
+        .then(response => response.json())
+        .then(data => {
+            const avatar = document.getElementById('user-avatar');
+            if (data.profile_photo) {
+                avatar.src = '/' + data.profile_photo;
+                avatar.style.display = 'block';
+            } else {
+                avatar.style.display = 'none';
+            }
+        });
+}
+
+function updateActionButtons(postId) {
+    fetch('/get_post_data/' + postId)
+        .then(response => response.json())
+        .then(data => {
+            const likeBtn = document.getElementById('like-btn');
+            const commentBtn = document.getElementById('comment-btn');
+            
+            likeBtn.querySelector('.count').textContent = data.like_count;
+            commentBtn.querySelector('.count').textContent = data.comment_count;
+            
+            // Like durumunu kontrol et
+            const currentUser = '{{ session.username if not session.guest else "" }}';
+            if (data.likes.includes(currentUser)) {
+                likeBtn.querySelector('.icon').textContent = '❤️';
+                likeBtn.classList.add('liked');
+            } else {
+                likeBtn.querySelector('.icon').textContent = '🤍';
+                likeBtn.classList.remove('liked');
+            }
+        });
+}
+
+function setupControls() {
+    // Önceki video
+    document.getElementById('prev-video').addEventListener('click', function() {
+        if (currentVideoIndex > 0) {
+            currentVideoIndex--;
+            playVideo(currentVideoIndex);
+            updateURL();
+        }
+    });
+    
+    // Sonraki video
+    document.getElementById('next-video').addEventListener('click', function() {
+        if (currentVideoIndex < allVideos.length - 1) {
+            currentVideoIndex++;
+            playVideo(currentVideoIndex);
+            updateURL();
+        }
+    });
+    
+    // Kapat
+    document.getElementById('close-player').addEventListener('click', function() {
+        window.close();
+        // Eğer window.close() çalışmazsa ana sayfaya yönlendir
+        setTimeout(() => {
+            window.location.href = '/nells';
+        }, 100);
+    });
+    
+    // Like butonu
+    document.getElementById('like-btn').addEventListener('click', function() {
+        if (currentPost) {
+            toggleLike(currentPost.post_id);
+        }
+    });
+    
+    // Share butonu
+    document.getElementById('share-btn').addEventListener('click', function() {
+        if (navigator.share) {
+            navigator.share({
+                title: 'ChatNell Video',
+                text: 'Bu videoyu kontrol et!',
+                url: window.location.href
+            });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Bağlantı kopyalandı!');
+        }
+    });
+}
+
+function setupKeyboardControls() {
+    document.addEventListener('keydown', function(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+                e.preventDefault();
+                document.getElementById('prev-video').click();
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                document.getElementById('next-video').click();
+                break;
+            case 'Escape':
+                document.getElementById('close-player').click();
+                break;
+            case ' ':
+                e.preventDefault();
+                const video = document.getElementById('main-video');
+                if (video.paused) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+                break;
+        }
+    });
+}
+
+function updateURL() {
+    if (currentPost) {
+        const newURL = new URL(window.location);
+        newURL.searchParams.set('video', currentPost.path);
+        newURL.searchParams.set('post', currentPost.post_id);
+        newURL.searchParams.set('index', currentVideoIndex);
+        window.history.replaceState({}, '', newURL);
+    }
+}
+
+function toggleLike(postId) {
+    const isGuest = {{ 'true' if is_guest else 'false' }};
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
+    }
+    
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const btn = document.getElementById('like-btn');
+            const icon = btn.querySelector('.icon');
+            const count = btn.querySelector('.count');
+            
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            btn.classList.toggle('liked', data.liked);
+            
+            // Animation
+            btn.style.transform = 'scale(1.2)';
+            setTimeout(() => btn.style.transform = 'scale(1)', 200);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Like error:', error));
+}
+
+function loadPostData(postId) {
+    if (!postId) return;
+    
+    fetch('/get_post_data/' + postId)
+        .then(response => response.json())
+        .then(data => {
+            updateActionButtons(postId);
+        });
+}
+
+// Touch support for mobile
+let touchStartY = 0;
+
+document.addEventListener('touchstart', function(e) {
+    touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', function(e) {
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffY = touchStartY - touchEndY;
+    
+    // Minimum swipe distance
+    if (Math.abs(diffY) > 50) {
+        if (diffY > 0) {
+            // Swipe up = next video
+            document.getElementById('next-video').click();
+        } else {
+            // Swipe down = previous video
+            document.getElementById('prev-video').click();
+        }
+    }
+});
+</script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow: hidden;
+}
+
+.video-player-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#main-video {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.video-controls {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 1000;
+}
+
+.control-btn {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.control-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+    transform: scale(1.1);
+}
+
+.close-btn {
+    background: rgba(255, 71, 87, 0.7);
+}
+
+.video-info {
+    position: fixed;
+    bottom: 100px;
+    left: 20px;
+    max-width: 300px;
+    z-index: 1000;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#username {
+    font-weight: 600;
+    color: #4ecdc4;
+}
+
+#video-content {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.video-actions {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 1000;
+}
+
+.action-btn {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.action-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+    transform: scale(1.1);
+}
+
+.action-btn .icon {
+    font-size: 20px;
+}
+
+.action-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.action-btn.liked .icon {
+    color: #ff4757;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .video-controls {
+        right: 10px;
+        gap: 10px;
+    }
+    
+    .control-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 16px;
+    }
+    
+    .video-info {
+        bottom: 80px;
+        left: 10px;
+        max-width: 250px;
+    }
+    
+    .video-actions {
+        right: 10px;
+        bottom: 10px;
+        gap: 10px;
+    }
+    
+    .action-btn {
+        width: 45px;
+        height: 45px;
+    }
+}
+</style>
+{% endblock %}

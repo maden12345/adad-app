@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div style="background: white; border-radius: 20px; padding: 50px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); backdrop-filter: blur(10px); max-width: 450px; width: 100%; margin: 20px;">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="font-size: 2.5rem; font-weight: 800; color: #1a1a1a; margin: 0;">ChatNell</h1>
+            <p style="color: #666; margin-top: 8px; font-size: 16px;">Profesyonel iletişim platformu</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <a href="{{ url_for('login') }}" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 16px 24px; border-radius: 12px; text-decoration: none; font-size: 16px; font-weight: 600; text-align: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102, 126, 234, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.3)'">
+                🚀 Giriş Yap
+            </a>
+
+            <a href="{{ url_for('register') }}" style="background: #f8f9fa; color: #1a1a1a; padding: 16px 24px; border-radius: 12px; text-decoration: none; font-size: 16px; font-weight: 600; text-align: center; transition: all 0.3s; border: 2px solid #e9ecef;" onmouseover="this.style.background='#e9ecef'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#f8f9fa'; this.style.transform='translateY(0)'">
+                ✨ Kayıt Ol
+            </a>
+
+            <div style="text-align: center; margin: 20px 0;">
+                <span style="color: #999; font-size: 14px;">veya</span>
+            </div>
+
+            <a href="{{ url_for('guest_login') }}" style="background: linear-gradient(135deg, #17a2b8, #138496); color: white; padding: 16px 24px; border-radius: 12px; text-decoration: none; font-size: 16px; font-weight: 600; text-align: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(23, 162, 184, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(23, 162, 184, 0.3)'">
+                👁️ Misafir Olarak Gözat
+            </a>
+        </div>
+
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e9ecef;">
+            <h3 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin-bottom: 20px; text-align: center;">✨ Özellikler</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; margin-bottom: 8px;">🔒</div>
+                    <span style="color: #666;">Güvenli</span>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; margin-bottom: 8px;">⚡</div>
+                    <span style="color: #666;">Hızlı</span>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; margin-bottom: 8px;">🎨</div>
+                    <span style="color: #666;">Modern</span>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; margin-bottom: 8px;">👥</div>
+                    <span style="color: #666;">Sosyal</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

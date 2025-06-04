@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ChatNell{% endblock %}</title>
+    <style>
+        .nav-icon-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff3b30;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+        }
+
+        .message-notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            z-index: 1001;
+        }
+    </style>
+
+    <script>
+        function updateMessageNotifications() {
+            const username = document.querySelector('body').getAttribute('data-username');
+            if (!username) return;
+
+            fetch('/get_unread_message_count')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('message-notification-badge');
+                    if (badge && data.count > 0) {
+                        badge.textContent = data.count;
+                        badge.style.display = 'flex';
+                    } else if (badge) {
+                        badge.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.log('Message notification error:', error);
+                    const badge = document.getElementById('message-notification-badge');
+                    if (badge) {
+                        badge.style.display = 'none';
+                    }
+                });
+        }
+
+        // Sayfa yüklendiğinde ve her 3 saniyede bir kontrol et
+        document.addEventListener('DOMContentLoaded', function() {
+            updateMessageNotifications();
+            setInterval(updateMessageNotifications, 3000);
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #fafafa;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 70px 20px 0 20px;
+        }
+
+        .header {
+            background: rgba(248, 250, 252, 0.95);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            padding: 12px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            backdrop-filter: blur(25px);
+            width: 100%;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .mobile-header .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .mobile-nav {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 8px;
+        }
+
+        .nav-btn {
+            background: rgba(71, 85, 105, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 16px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 18px;
+            color: rgba(51, 65, 85, 0.9);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .notification-btn {
+            background: transparent !important;
+            color: rgba(51, 65, 85, 0.9) !important;
+            border: 1px solid rgba(148, 163, 184, 0.3) !important;
+        }
+
+        .notification-btn:hover {
+            background: rgba(71, 85, 105, 0.1) !important;
+            color: rgba(30, 41, 59, 1) !important;
+        }
+
+        .nav-btn.nells-btn {
+            width: auto;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .nav-btn:hover {
+            background: rgba(71, 85, 105, 0.15);
+            border-color: rgba(100, 116, 139, 0.5);
+            color: rgba(30, 41, 59, 1);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn.active {
+            background: rgba(71, 85, 105, 0.2);
+            border-color: rgba(100, 116, 139, 0.6);
+            color: rgba(30, 41, 59, 1);
+            box-shadow: 0 4px 15px rgba(71, 85, 105, 0.2);
+        }
+
+        .nav-btn.login {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: #fff;
+        }
+
+        .nav-btn.logout {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            border: none;
+            color: #fff;
+        }
+
+        .mobile-user {
+            color: rgba(71, 85, 105, 0.9) !important;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .profile-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: inline-block;
+            border: 2px solid rgba(148, 163, 184, 0.4);
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .profile-btn:hover {
+            border-color: rgba(100, 116, 139, 0.7);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .profile-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            border-radius: 50%;
+        }
+
+        .profile-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 50%;
+        }
+
+        .notification-btn {
+            position: relative;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .notifications-dropdown {
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            min-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 9999;
+            display: none;
+        }
+
+        .notification-header {
+            padding: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .notification-header h4 {
+            margin: 0;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .notification-list {
+            padding: 10px;
+        }
+
+        .empty-notifications {
+            text-align: center;
+            color: #888;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #333;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #1a1a1a;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e5e5;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+        }
+
+        .btn-danger:hover {
+            background: #ff3742;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #e5e5e5;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            font-family: inherit;
+            background: #fafafa;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: #1a1a1a;
+            outline: none;
+            background: white;
+        }
+
+        .alert {
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            border: 1px solid #68d391;
+            color: #2f855a;
+        }
+
+        .alert-error {
+            background: #fff5f5;
+            border: 1px solid #fc8181;
+            color: #c53030;
+        }
+
+        /* Desktop styles */
+        @media (min-width: 769px) {
+            .mobile-nav {
+                gap: 16px;
+                max-width: 600px;
+            }
+
+            .nav-btn {
+                width: 52px;
+                height: 52px;
+                font-size: 18px;
+            }
+
+            .nav-btn.nells-btn {
+                padding: 10px 16px;
+                font-size: 14px;
+                min-width: 90px;
+            }
+
+            .logout-mobile {
+                display: none !important;
+            }
+
+            .logout-top-right {
+                display: block !important;
+            }
+
+            .logout-top-right:hover {
+                background: rgba(71, 85, 105, 0.15) !important;
+                border-color: rgba(100, 116, 139, 0.5) !important;
+                color: rgba(30, 41, 59, 1) !important;
+                transform: translateY(-2px) scale(1.05) !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+            }
+
+            .messages-btn {
+                width: 52px !important;
+                height: 52px !important;
+                font-size: 22px !important;
+            }
+
+            .profile-btn {
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header .header-content {
+                padding: 0 10px;
+            }
+
+            .mobile-nav {
+                gap: 8px;
+                max-width: 380px;
+            }
+
+            .nav-btn {
+                width: 42px;
+                height: 42px;
+                font-size: 16px;
+                border-radius: 14px;
+            }
+
+            .nav-btn.nells-btn {
+                width: auto;
+                padding: 8px 10px;
+                font-size: 12px;
+                min-width: 60px;
+                height: 42px;
+            }
+
+            .profile-btn {
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+            }
+
+            .messages-btn {
+                width: 42px !important;
+                height: 42px !important;
+                font-size: 18px !important;
+                border-radius: 14px !important;
+            }
+
+            .logout-mobile {
+                width: 36px !important;
+                height: 36px !important;
+                font-size: 14px !important;
+            }
+
+            .logout-top-right {
+                display: none !important;
+            }
+
+            .notifications-dropdown {
+                min-width: 280px;
+                right: -20px;
+            }
+
+            .container {
+                padding: 0 10px;
+            }
+
+            .card {
+                padding: 15px;
+                margin: 10px 0;
+            }
+        }
+
+        .minimal-nav {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .minimal-nav .btn {
+            font-size: 13px;
+            padding: 6px 12px;
+        }
+
+        .messages-btn {
+            background: transparent !important;
+            width: 48px !important;
+            height: 48px !important;
+            font-size: 20px !important;
+            border: 1px solid rgba(148, 163, 184, 0.3) !important;
+            border-radius: 16px !important;
+            color: rgba(51, 65, 85, 0.9) !important;
+        }
+
+        .messages-btn:hover {
+            background: rgba(71, 85, 105, 0.1) !important;
+            transform: translateY(-2px) scale(1.05) !important;
+            color: rgba(30, 41, 59, 1) !important;
+        }
+
+        .logout-mobile {
+            background: rgba(248, 113, 113, 0.15) !important;
+            border: 1px solid rgba(239, 68, 68, 0.3) !important;
+            width: 36px !important;
+            height: 36px !important;
+            font-size: 14px !important;
+            color: rgba(239, 68, 68, 0.9) !important;
+        }
+
+        .logout-mobile:hover {
+            background: rgba(248, 113, 113, 0.25) !important;
+            border-color: rgba(239, 68, 68, 0.5) !important;
+            color: rgba(220, 38, 38, 1) !important;
+        }
+    </style>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+    <script>
+        let socket;
+        let notificationPermission = false;
+
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                notificationPermission = permission === 'granted';
+                return notificationPermission;
+            }
+            return false;
+        }
+
+        function showNotification(title, body, icon = '/static/favicon.ico') {
+            if (notificationPermission && 'Notification' in window) {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: icon,
+                    badge: icon,
+                    requireInteraction: false,
+                    silent: false
+                });
+
+                setTimeout(() => notification.close(), 5000);
+
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
+            }
+        }
+
+        function initializeSocket() {
+            const username = document.querySelector('body').getAttribute('data-username');
+            if (!username) return;
+
+            socket = io.connect(window.location.protocol + '//' + document.domain + ':' + location.port);
+
+            socket.on('connect', function() {
+                console.log('Connected to server');
+                socket.emit('join_room', { room: username });
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Disconnected from server');
+            });
+
+            socket.on('new_notification', function(data) {
+                console.log('New notification received:', data);
+
+                let title = 'ChatNell';
+                let body = data.message;
+
+                if (data.type === 'message') {
+                    title = 'Yeni Mesaj';
+                } else if (data.type === 'like') {
+                    title = 'Yeni Beğeni';
+                } else if (data.type === 'comment') {
+                    title = 'Yeni Yorum';
+                } else if (data.type === 'friend_accepted') {
+                    title = 'Arkadaşlık Kabul Edildi';
+                }
+
+                showNotification(title, body);
+
+                updateNotificationBadge();
+
+                showInPageNotification(data);
+            });
+        }
+
+        function showInPageNotification(data) {
+            // Bildirimler artık sayfa içinde gösterilecek
+            updateNotificationBadge();
+        }
+
+        function updateNotificationBadge() {
+            fetch('/get_notifications')
+                .then(response => response.json())
+                .then(notifications => {
+                    const badge = document.getElementById('notification-badge');
+                    if (badge && notifications.length > 0) {
+                        badge.textContent = notifications.length;
+                        badge.style.display = 'flex';
+                    }
+                })
+                .catch(console.error);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            requestNotificationPermission();
+
+            initializeSocket();
+
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</head>
+<body {% if session.username %}data-username="{{ session.username }}"{% endif %}>
+    {% if session.username or session.guest %}
+    <div class="header mobile-header">
+        <div class="header-content">
+            <button onclick="confirmLogout()" class="logout-top-right" style="position: absolute; top: 8px; right: 15px; background: rgba(71, 85, 105, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 14px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgba(51, 65, 85, 0.9); cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);">🚪</button>
+            <div class="nav mobile-nav">
+                {% if session.guest %}
+                    <div class="user-info mobile-user" style="color: #17a2b8;">👁️</div>
+                    <a href="{{ url_for('nells') }}" class="nav-btn active">📱</a>
+                    <a href="{{ url_for('logout') }}" class="nav-btn login">🔐</a>
+                {% else %}
+                    <button onclick="confirmLogout()" class="nav-btn logout-mobile">🚪</button>
+                    <a href="{{ url_for('dashboard') }}" class="nav-btn">🏠</a>
+                    <a href="{{ url_for('nells') }}" class="nav-btn active nells-btn">🎬 Nells</a>
+                    <div style="position: relative;">
+                        <button id="notifications-btn" class="nav-btn notification-btn">
+                            🔔
+                            <span id="notification-count" class="notification-badge">0</span>
+                        </button>
+                        <div id="notifications-dropdown" class="notifications-dropdown">
+                            <div class="notification-header">
+                                <h4>📬 Bildirimler</h4>
+                            </div>
+                            <div id="notification-list" class="notification-list">
+                                <div class="empty-notifications">Henüz bildirim yok</div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('profile', username=session.username) }}" class="profile-btn">
+                        <img id="header-profile-photo" src="" alt="{{ session.username }}" class="profile-img">
+                        <div id="header-profile-placeholder" class="profile-placeholder">
+                            {{ session.username[0].upper() }}
+                        </div>
+                    </a>
+                    <div class="nav-icon-container">
+                        <a href="{{ url_for('messages') }}" class="nav-btn messages-btn">💬</a>
+                        <span id="message-notification-badge" class="message-notification-badge">0</span>
+                    </div>
+                    <a href="{{ url_for('voice_rooms') }}" style="color: white; text-decoration: none; padding: 8px 12px; border-radius: 16px; transition: all 0.3s; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #27ae60, #2ecc71); font-size: 13px; font-weight: 600; min-width: 80px; height: 48px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='linear-gradient(135deg, #2ecc71, #27ae60)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='linear-gradient(135deg, #27ae60, #2ecc71)'; this.style.transform='translateY(0)'">
+                        <span style="font-size: 14px;">🎤</span>
+                        Ses
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="container">
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-success">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    {% if session.username %}
+    <script>
+    // Load profile photo for header
+    fetch('/get_user_info/{{ session.username }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.profile_photo) {
+                document.getElementById('header-profile-photo').src = '/' + data.profile_photo;
+                document.getElementById('header-profile-photo').style.display = 'block';
+                document.getElementById('header-profile-placeholder').style.display = 'none';
+            }
+        });
+
+    // Notifications dropdown
+    document.getElementById('notifications-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const dropdown = document.getElementById('notifications-dropdown');
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        loadNotifications();
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function() {
+        document.getElementById('notifications-dropdown').style.display = 'none';
+    });
+
+    function loadNotifications() {
+        Promise.all([
+            fetch('/get_friend_requests'),
+            fetch('/get_notifications')
+        ])
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(([friendData, notifications]) => {
+            const notificationList = document.getElementById('notification-list');
+            const notificationCount = document.getElementById('notification-count');
+
+            let allNotifications = [];
+
+            // Add friend requests
+            if (friendData.received_requests && friendData.received_requests.length > 0) {
+                allNotifications = allNotifications.concat(friendData.received_requests.map(username => ({
+                    type: 'friend_request',
+                    username: username,
+                    message: `${username} arkadaşlık isteği gönderdi`,
+                    timestamp: new Date().toISOString()
+                })));
+            }
+
+            // Add like/comment notifications
+            if (notifications && notifications.length > 0) {
+                allNotifications = allNotifications.concat(notifications);
+            }
+
+            // Sort by timestamp (newest first)
+            allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (allNotifications.length > 0) {
+                notificationCount.textContent = allNotifications.length;
+                notificationCount.style.display = 'flex';
+
+                notificationList.innerHTML = allNotifications.map(notification => {
+                    if (notification.type === 'friend_request') {
+                        return `
+                            <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; color: #fff;">
+                                <div>
+                                    <strong style="color: #4ecdc4;">${notification.username}</strong> arkadaşlık isteği gönderdi
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="acceptRequest('${notification.username}')" style="background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Kabul Et</button>
+                                    <button onclick="rejectRequest('${notification.username}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Reddet</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        const icon = notification.type === 'like' ? '❤️' : '💬';
+                        const timeAgo = getTimeAgo(notification.timestamp);
+                        return `
+                            <div style="padding: 12px; border-bottom: 1px solid #333; color: #fff; cursor: pointer;" onclick="window.location.href='/profile/${notification.from_user}'">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-size: 16px;">${icon}</span>
+                                    <strong style="color: #4ecdc4;">${notification.from_user}</strong>
+                                </div>
+                                <div style="font-size: 14px; color: #ccc; margin-bottom: 4px;">
+                                    ${notification.message}
+                                </div>
+                                <div style="font-size: 12px; color: #888;">
+                                    ${timeAgo}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            } else {
+                notificationCount.style.display = 'none';
+                notificationList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Henüz bildirim yok</div>';
+            }
+        })
+        .catch(error => {
+            console.log('Error loading notifications:', error);
+            document.getElementById('notification-count').style.display = 'none';
+            document.getElementById('notification-list').innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Bildirimler yüklenirken hata oluştu</div>';
+        });
+    }
+
+    function getTimeAgo(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffMs = now - time;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Şimdi';
+        if (diffMins < 60) return `${diffMins} dakika önce`;
+        if (diffHours < 24) return `${diffHours} saat önce`;
+        return `${diffDays} gün önce`;
+    }
+
+    function acceptRequest(username) {
+        fetch('/accept_friend_request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadNotifications();
+            }
+        });
+    }
+
+    function rejectRequest(username) {
+        fetch('/reject_friend_request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadNotifications();
+            }
+        });
+    }
+
+    // Load notifications on page load
+    loadNotifications();
+
+    // Logout confirmation
+    function confirmLogout() {
+        if (confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
+            window.location.href = '{{ url_for("logout") }}';
+        }
+    }
+    </script>
+    {% endif %}
+</body>
+</html>
