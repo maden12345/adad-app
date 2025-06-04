@@ -1114,144 +1114,7 @@
 .send-comment-btn:hover {
     background: #1877f2;
 }
-
-/* Fullscreen Modal Styles */
-.fullscreen-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 9999;
-    display: none;
-    overflow: auto;
-}
-
-.fullscreen-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.fullscreen-media {
-    max-width: 90%;
-    max-height: 80vh;
-    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.6);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.fullscreen-media img,
-.fullscreen-media video {
-    width: 100%;
-    height: auto;
-    display: block;
-    object-fit: contain;
-}
-
-.fullscreen-actions {
-    display: flex;
-    gap: 20px;
-    margin-top: 20px;
-}
-
-.fullscreen-action-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 12px 20px;
-    border-radius: 50%;
-    transition: background 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.fullscreen-action-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.fullscreen-action-btn .count {
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.delete-btn-fs {
-    background: rgba(255, 71, 87, 0.3) !important;
-}
-
-.delete-btn-fs:hover {
-    background: rgba(255, 71, 87, 0.5) !important;
-}
-
-/* Fullscreen close button */
-.fullscreen-close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-}
-
-.fullscreen-close-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-.fullscreen-image, .fullscreen-video {
-    max-width: 95vw;
-    max-height: 90vh;
-    width: auto;
-    height: auto;
-    border-radius: 8px;
-    object-fit: contain;
-}
 </style>
-
-<div class="fullscreen-container" id="fullscreen-post">
-    <button class="fullscreen-close-btn" onclick="closeFullscreen()">×</button>
-    <div class="fullscreen-content">
-        <div class="fullscreen-media">
-            <img src="" alt="" id="fullscreen-image">
-            <video controls style="display: none;" id="fullscreen-video">
-                <source src="" type="video/mp4">
-            </video>
-        </div>
-
-        <!-- Transparent action buttons in fullscreen -->
-        <div class="fullscreen-actions">
-            <button class="fullscreen-action-btn like-btn-fs" onclick="toggleLikeFullscreen()" data-post-id="">
-                <span class="icon">🤍</span>
-                <span class="count">0</span>
-            </button>
-            <button class="fullscreen-action-btn comment-btn-fs" onclick="toggleCommentsFullscreen()">
-                <span class="icon">💬</span>
-                <span class="count">0</span>
-            </button>
-            <button class="fullscreen-action-btn share-btn-fs" onclick="sharePostFullscreen()">
-                <span class="icon">📤</span>
-            </button>
-            <button class="fullscreen-action-btn delete-btn-fs" onclick="deletePostFullscreen()" style="display: none;">
-                <span class="icon">🗑️</span>
-            </button>
-        </div>
-    </div>
-</div>
 
 <script>
 const profileUser = '{{ profile_user }}';
@@ -1374,13 +1237,10 @@ function loadPostsGrid(posts) {
     });
 }
 
-// Fullscreen Post View
-let currentFullscreenPostId = null;
-
 function openPost(postId) {
-    currentFullscreenPostId = postId; // Store the post ID
+    console.log('Opening post:', postId);
 
-    // Fetch post data and show in fullscreen
+    // Fetch post data and show in modal
     fetch(`/get_post_data/${postId}`)
         .then(response => response.json())
         .then(postData => {
@@ -1388,195 +1248,13 @@ function openPost(postId) {
             return fetch(`/get_full_post/${postId}`)
                 .then(response => response.json())
                 .then(fullPost => {
-                    showFullscreen(fullPost, postData);
+                    showPostModal(fullPost, postData);
                 });
         })
         .catch(error => {
             console.error('Error loading post:', error);
             alert('Gönderi yüklenirken hata oluştu');
         });
-}
-
-function showFullscreen(post, postData) {
-    const fullscreenContainer = document.getElementById('fullscreen-post');
-    const fullscreenImage = document.getElementById('fullscreen-image');
-    const fullscreenVideo = document.getElementById('fullscreen-video');
-    const isLiked = postData.likes && postData.likes.includes('{{ session.username if session.username else "" }}');
-
-    // Reset
-    fullscreenImage.style.display = 'none';
-    fullscreenVideo.style.display = 'none';
-
-    if (post.media_files && post.media_files.length > 0) {
-        const media = post.media_files[0];
-        if (media.type === 'image') {
-            fullscreenImage.src = `/${media.path}`;
-            fullscreenImage.style.display = 'block';
-        } else {
-            fullscreenVideo.src = `/${media.path}`;
-            fullscreenVideo.style.display = 'block';
-        }
-    }
-
-    fullscreenContainer.style.display = 'block';
-
-    // Update Like Button
-    const likeBtn = document.querySelector('.like-btn-fs');
-    likeBtn.dataset.postId = post.id;
-    likeBtn.querySelector('.icon').textContent = isLiked ? '❤️' : '🤍';
-
-    updateFullscreenActions(post.id); // Load interactions and ownership checks
-}
-
-function closeFullscreen() {
-    document.getElementById('fullscreen-post').style.display = 'none';
-    currentFullscreenPostId = null;
-}
-
-function toggleLikeFullscreen() {
-    const postId = document.querySelector('.like-btn-fs').dataset.postId;
-    if (!postId) return;
-
-    fetch('/like_post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const likeBtn = document.querySelector('.like-btn-fs');
-            if (data.liked) {
-                likeBtn.querySelector('.icon').textContent = '❤️';
-                likeBtn.classList.add('liked');
-            } else {
-                likeBtn.querySelector('.icon').textContent = '🤍';
-                likeBtn.classList.remove('liked');
-            }
-        }
-    });
-}
-
-function toggleCommentsFullscreen() {
-    alert('Yorumlar henüz desteklenmiyor!');
-}
-
-function sharePostFullscreen() {
-    if (currentFullscreenPostId) {
-        if (navigator.share) {
-            navigator.share({
-                title: 'ChatNell Gönderi',
-                text: 'Bu gönderiyi kontrol et!',
-                url: window.location.href
-            });
-        } else {
-            navigator.clipboard.writeText(window.location.href);
-            alert('Bağlantı kopyalandı!');
-        }
-    }
-}
-
-function deletePostFullscreen() {
-    if (!currentFullscreenPostId) return;
-
-    const confirmMessage = 'Bu gönderiyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.';
-
-    showDeleteConfirmModal(confirmMessage, currentFullscreenPostId);
-}
-
-function showDeleteConfirmModal(message, postId) {
-    const modal = `
-        <div id="delete-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;">
-                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">🗑️ Gönderiyi Sil</h3>
-                <p style="color: #666; margin-bottom: 25px; line-height: 1.4; font-size: 15px;">
-                    ${message}
-                </p>
-                <div style="display: flex; gap: 12px; justify-content: center;">
-                    <button onclick="confirmDeletePost(${postId})" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
-                        Sil
-                    </button>
-                    <button onclick="closeDeleteConfirmModal()" style="background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
-                        İptal
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modal);
-}
-
-function closeDeleteConfirmModal() {
-    const modal = document.getElementById('delete-confirm-modal');
-    if (modal) modal.remove();
-}
-
-function confirmDeletePost(postId) {
-    closeDeleteConfirmModal();
-
-    fetch('/delete_post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showInPageNotification('Gönderi başarıyla silindi', 'success');
-            closeFullscreen();
-            // Refresh the posts grid
-            loadProfileStats();
-        } else {
-            showInPageNotification('Hata: ' + data.error, 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showInPageNotification('Bir hata oluştu', 'error');
-    });
-}
-
-function updateFullscreenActions(postId) {
-    // Update like button
-    const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
-    const fsLikeBtn = document.querySelector('.like-btn-fs');
-
-    if (originalLikeBtn && fsLikeBtn) {
-        fsLikeBtn.dataset.postId = postId;
-        fsLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
-        fsLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
-
-        // Copy liked class if exists
-        if (originalLikeBtn.classList.contains('liked')) {
-            fsLikeBtn.classList.add('liked');
-        } else {
-            fsLikeBtn.classList.remove('liked');
-        }
-    }
-
-    // Update comment count
-    const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
-    const fsCommentBtn = document.querySelector('.comment-btn-fs');
-
-    // Show/hide delete button based on post ownership
-    const fsDeleteBtn = document.querySelector('.delete-btn-fs');
-    if (fsDeleteBtn) {
-        // Get post data to check ownership
-        fetch(`/get_full_post/${postId}`)
-            .then(response => response.json())
-            .then(post => {
-                const currentUser = '{{ session.username if session.username else "" }}';
-                if (post.username === currentUser) {
-                    fsDeleteBtn.style.display = 'flex';
-                    fsDeleteBtn.dataset.postId = postId;
-                } else {
-                    fsDeleteBtn.style.display = 'none';
-                }
-            })
-            .catch(() => {
-                fsDeleteBtn.style.display = 'none';
-            });
-    }
 }
 
 function showPostModal(post, postData) {
@@ -1901,7 +1579,7 @@ function showInPageNotification(message, type = 'success') {
             }
         </style>
     `;
-
+    
     document.body.insertAdjacentHTML('beforeend', notification);
 
     setTimeout(() => {
@@ -1917,8 +1595,8 @@ function closeNotification(notificationId) {
     const notif = document.getElementById(notificationId);
     if (notif) {
         notif.style.animation = 'slideOutToTop 0.3s ease';
-        setTimeout(() => notif.remove(), 300);        }
-    }, 300);
+        setTimeout(() => notif.remove(), 300);
+    }
 }
 
 function cancelFriendRequest(username) {
@@ -1927,7 +1605,7 @@ function cancelFriendRequest(username) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username })
     })
-    .then(response =>response.json())
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             showInPageNotification(data.message, 'success');
@@ -2146,7 +1824,7 @@ function toggleBlockUser() {
     const confirmMessage = isUserBlocked ? 
         `${profileUser} kullanıcısının engelini kaldırmak istediğinizden emin misiniz?` :
         `${profileUser} kullanıcısını engellemek istediğinizden emin misiniz?`;
-
+    
     showBlockConfirmModal(confirmMessage, action);
 }
 
@@ -2154,7 +1832,7 @@ function showBlockConfirmModal(message, action) {
     const iconText = action === 'block' ? '🚫' : '✅';
     const buttonText = action === 'block' ? 'Engelle' : 'Engeli Kaldır';
     const buttonColor = action === 'block' ? 'linear-gradient(135deg, #ff4757, #ff3742)' : 'linear-gradient(135deg, #28a745, #20c997)';
-
+    
     const modal = `
         <div id="block-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
             <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;">
@@ -2183,7 +1861,7 @@ function closeBlockConfirmModal() {
 
 function confirmBlockAction(action) {
     closeBlockConfirmModal();
-
+    
     fetch(`/${action}_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2195,7 +1873,7 @@ function confirmBlockAction(action) {
             showInPageNotification(data.message, 'success');
             checkBlockStatus();
             document.getElementById('more-menu').style.display = 'none';
-
+            
             // If blocked, hide message button
             if (action === 'block') {
                 document.getElementById('message-btn').style.display = 'none';
