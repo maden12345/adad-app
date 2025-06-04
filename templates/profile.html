@@ -1530,26 +1530,65 @@ function confirmUnfollow(username) {
 }
 
 function showSuccessMessage(message) {
+    showInPageNotification(message, 'success');
+}
+
+function showInPageNotification(message, type = 'success') {
+    const colors = {
+        success: {
+            bg: 'linear-gradient(135deg, #28a745, #20c997)',
+            icon: '✅'
+        },
+        error: {
+            bg: 'linear-gradient(135deg, #dc3545, #c82333)',
+            icon: '❌'
+        },
+        info: {
+            bg: 'linear-gradient(135deg, #17a2b8, #138496)',
+            icon: '🔔'
+        }
+    };
+
+    const color = colors[type] || colors.success;
+    const notificationId = `notification-${Date.now()}`;
+
     const notification = `
-        <div id="success-notification" style="position: fixed; top: 20px; right: 20px; background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 16px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); z-index: 10001; font-weight: 500; animation: slideInRight 0.3s ease;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">✅</span>
-                <span>${message}</span>
+        <div id="${notificationId}" style="position: fixed; top: 80px; right: 20px; background: ${color.bg}; color: white; padding: 16px 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); z-index: 10001; font-weight: 500; animation: slideInFromTop 0.4s ease; max-width: 400px; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 18px;">${color.icon}</span>
+                <span style="line-height: 1.4;">${message}</span>
+                <button onclick="closeNotification('${notificationId}')" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; margin-left: auto; padding: 0 4px;">×</button>
             </div>
         </div>
         <style>
-            @keyframes slideInRight {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
+            @keyframes slideInFromTop {
+                from { transform: translateY(-100px) translateX(100%); opacity: 0; }
+                to { transform: translateY(0) translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutToTop {
+                from { transform: translateY(0) translateX(0); opacity: 1; }
+                to { transform: translateY(-100px) translateX(100%); opacity: 0; }
             }
         </style>
     `;
+    
     document.body.insertAdjacentHTML('beforeend', notification);
 
     setTimeout(() => {
-        const notif = document.getElementById('success-notification');
-        if (notif) notif.remove();
-    }, 3000);
+        const notif = document.getElementById(notificationId);
+        if (notif) {
+            notif.style.animation = 'slideOutToTop 0.3s ease';
+            setTimeout(() => notif.remove(), 300);
+        }
+    }, 4000);
+}
+
+function closeNotification(notificationId) {
+    const notif = document.getElementById(notificationId);
+    if (notif) {
+        notif.style.animation = 'slideOutToTop 0.3s ease';
+        setTimeout(() => notif.remove(), 300);
+    }
 }
 
 function cancelFriendRequest(username) {
@@ -1790,7 +1829,7 @@ function toggleBlockUser() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showSuccessMessage(data.message);
+            showInPageNotification(data.message, 'success');
             checkBlockStatus();
             document.getElementById('more-menu').style.display = 'none';
             
@@ -1801,12 +1840,12 @@ function toggleBlockUser() {
                 document.getElementById('message-btn').style.display = 'inline-block';
             }
         } else {
-            alert('Hata: ' + data.error);
+            showInPageNotification('Hata: ' + data.error, 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Bir hata oluştu');
+        showInPageNotification('Bir hata oluştu', 'error');
     });
 }
 
