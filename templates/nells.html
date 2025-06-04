@@ -183,11 +183,7 @@
             <button class="fullscreen-action-btn share-btn-fs" onclick="sharePostFullscreen()">
                 <span class="icon">📤</span>
             </button>
-                    <button class="fullscreen-action-btn delete-btn-fs" onclick="deleteCurrentFullscreenPost()" style="color: #ff3040; display: none;">
-                        <span class="icon">🗑️</span>
-                        <span class="count">Sil</span>
-                    </button>
-                </div></div>
+        </div></div>
 
 <!-- Fullscreen Comments Section -->
 <div id="fullscreen-comments" class="fullscreen-comments" style="display: none;">
@@ -423,7 +419,7 @@ function setupAutoPlay() {
                     if (v !== video) v.pause();
                 });
                 video.play();
-
+                
                 // Track video view when it starts playing
                 const postId = video.dataset.postId;
                 if (postId && !video.dataset.viewTracked) {
@@ -472,14 +468,14 @@ function handleVideoClick(video) {
 // Video tıklama event handler'ı
 function addVideoClickHandlers() {
     const videos = document.querySelectorAll('.post-media.video');
-
+    
     videos.forEach(video => {
         // Mobil cihazlar için touch events
         if (isMobile()) {
             let touchStartTime = 0;
             let touchStartX = 0;
             let touchStartY = 0;
-
+            
             video.addEventListener('touchstart', function(e) {
                 touchStartTime = Date.now();
                 touchStartX = e.touches[0].clientX;
@@ -487,17 +483,17 @@ function addVideoClickHandlers() {
                 // Video otomatik oynatmayı durdur
                 video.pause();
             }, { passive: true });
-
+            
             video.addEventListener('touchend', function(e) {
                 const touchEndTime = Date.now();
                 const touchDuration = touchEndTime - touchStartTime;
                 const touchEndX = e.changedTouches[0].clientX;
                 const touchEndY = e.changedTouches[0].clientY;
-
+                
                 // Hareket mesafesini hesapla
                 const moveX = Math.abs(touchEndX - touchStartX);
                 const moveY = Math.abs(touchEndY - touchStartY);
-
+                
                 // Eğer kısa dokunma ve az hareket varsa video'yu full screen aç
                 if (touchDuration < 500 && moveX < 20 && moveY < 20) {
                     e.preventDefault();
@@ -505,7 +501,7 @@ function addVideoClickHandlers() {
                     handleVideoClick(video);
                 }
             }, { passive: false });
-
+            
             video.addEventListener('touchmove', function(e) {
                 // Touch move sırasında hiçbir şey yapma, sadece kaydırmayı engelle
                 e.preventDefault();
@@ -1099,7 +1095,7 @@ function setupVideoPlayerTouchGestures() {
 
         if (Math.abs(diffY) > threshold || fastSwipe) {
             scrollTransition = true;
-
+            
             if (diffY > 0) {
                 // Yukarı kaydırma = sonraki video
                 navigateOverlayVideo(1);
@@ -1126,7 +1122,7 @@ function setupVideoPlayerTouchGestures() {
 // Kaydırma yönü göstergesi
 function showScrollIndicator(diffY) {
     let indicator = document.getElementById('scroll-indicator');
-
+    
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'scroll-indicator';
@@ -1171,7 +1167,7 @@ function navigateOverlayVideo(direction) {
     if (overlayVideo && nextVideoData) {
         // TikTok benzeri geçiş animasyonu
         videoPlayerOverlay.style.transition = 'transform 0.3s ease-out';
-
+        
         // Geçiş yönüne göre animasyon
         const translateDirection = direction > 0 ? '-100vh' : '100vh';
         videoPlayerOverlay.style.transform = `translateY(${translateDirection})`;
@@ -1180,20 +1176,20 @@ function navigateOverlayVideo(direction) {
             // Video'yu değiştir
             overlayVideo.pause();
             overlayVideo.src = '/' + nextVideoData.path;
-
+            
             // Karşı yönden geri getir
             const returnDirection = direction > 0 ? '100vh' : '-100vh';
             videoPlayerOverlay.style.transform = `translateY(${returnDirection})`;
-
+            
             setTimeout(() => {
                 // Normale döndür
                 videoPlayerOverlay.style.transform = 'translateY(0)';
                 overlayVideo.play().catch(e => console.log('Video play error:', e));
-
+                
                 // Post bilgilerini güncelle
                 currentFullscreenPostId = nextVideoData.post_id;
                 updateOverlayActions(nextVideoData.post_id);
-
+                
                 // Transition'ı kaldır
                 setTimeout(() => {
                     videoPlayerOverlay.style.transition = 'none';
@@ -1228,12 +1224,6 @@ function updateFullscreenActions(postId) {
     if (originalCommentBtn && fsCommentBtn) {
         fsCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
     }
-
-     // Fullscreen'deki silme butonu
-     const fsDeleteBtn = document.querySelector('.delete-btn-fs');
-     if (fsDeleteBtn) {
-        fsDeleteBtn.style.display = (currentUser === '{{ session.username }}') ? 'block' : 'none';
-     }
 }
 
 // Fullscreen action functions
@@ -1643,45 +1633,6 @@ function updateGlobalAudioButton() {
     }
 }
 
-function deletePostNells(postId) {
-    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
-        fetch('/delete_post', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ post_id: postId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Gönderi silindi');
-                location.reload();
-            } else {
-                alert('❌ ' + data.error);
-            }
-        });
-    }
-}
-
-function deleteCurrentFullscreenPost() {
-    if (!currentFullscreenPostId) return;
-
-    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
-        fetch('/delete_post', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ post_id: currentFullscreenPostId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Gönderi silindi');
-                goToHome(); // Ana sayfaya yönlendir
-            } else {
-                alert('❌ ' + data.error);
-            }
-        });
-    }
-}
 </script>
 
 <style>
@@ -1800,13 +1751,14 @@ body {
 
 /* Posts Feed */
 .posts-feed {
-    padding: 10px 16px 10px 16px;
+    padding: 10px 16px 100px 16px;
 }
 
 .post-item {
     background: #fff;
     border-radius: 12px;
     padding: 16px;
+    padding-right: 70px; /* Space for action buttons */
     margin-bottom: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
@@ -1845,7 +1797,7 @@ body {
     height: 36px;
     border-radius: 50%;
     background: #007aff;
-    display: flex;```python
+    display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
@@ -2929,7 +2881,7 @@ video {
         position: relative;
         touch-action: manipulation;
     }
-
+    
     .post-media.video {
         pointer-events: auto;
         touch-action: manipulation;
@@ -2937,7 +2889,7 @@ video {
         -webkit-user-select: none;
         user-select: none;
     }
-
+    
     .video-overlay {
         pointer-events: none;
     }
