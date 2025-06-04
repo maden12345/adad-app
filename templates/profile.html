@@ -1466,8 +1466,12 @@ function sendFriendRequest(username) {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.message || data.error);
-        if (data.success) loadProfileFriendshipStatus();
+        if (data.success) {
+            showInPageNotification(data.message, 'success');
+            loadProfileFriendshipStatus();
+        } else {
+            showInPageNotification(data.error, 'error');
+        }
     });
 }
 
@@ -1479,8 +1483,12 @@ function acceptFriendRequest(username) {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.message || data.error);
-        if (data.success) loadProfileFriendshipStatus();
+        if (data.success) {
+            showInPageNotification(data.message, 'success');
+            loadProfileFriendshipStatus();
+        } else {
+            showInPageNotification(data.error, 'error');
+        }
     });
 }
 
@@ -1600,10 +1608,10 @@ function cancelFriendRequest(username) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('İstek geri çekildi');
+            showInPageNotification(data.message, 'success');
             loadProfileFriendshipStatus();
         } else {
-            alert('Hata: ' + data.error);
+            showInPageNotification('Hata: ' + data.error, 'error');
         }
     });
 }
@@ -1817,10 +1825,43 @@ function toggleBlockUser() {
         `${profileUser} kullanıcısının engelini kaldırmak istediğinizden emin misiniz?` :
         `${profileUser} kullanıcısını engellemek istediğinizden emin misiniz?`;
     
-    if (!confirm(confirmMessage)) {
-        return;
-    }
+    showBlockConfirmModal(confirmMessage, action);
+}
 
+function showBlockConfirmModal(message, action) {
+    const iconText = action === 'block' ? '🚫' : '✅';
+    const buttonText = action === 'block' ? 'Engelle' : 'Engeli Kaldır';
+    const buttonColor = action === 'block' ? 'linear-gradient(135deg, #ff4757, #ff3742)' : 'linear-gradient(135deg, #28a745, #20c997)';
+    
+    const modal = `
+        <div id="block-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">${iconText} ${action === 'block' ? 'Kullanıcıyı Engelle' : 'Engeli Kaldır'}</h3>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.4; font-size: 15px;">
+                    ${message}
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button onclick="confirmBlockAction('${action}')" style="background: ${buttonColor}; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
+                        ${buttonText}
+                    </button>
+                    <button onclick="closeBlockConfirmModal()" style="background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
+                        İptal
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function closeBlockConfirmModal() {
+    const modal = document.getElementById('block-confirm-modal');
+    if (modal) modal.remove();
+}
+
+function confirmBlockAction(action) {
+    closeBlockConfirmModal();
+    
     fetch(`/${action}_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
