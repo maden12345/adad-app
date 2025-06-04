@@ -1426,6 +1426,43 @@ function formatTime(timestamp) {
     }
 }
 
+function sharePost(postId) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderi',
+            text: 'Bu gönderiyi kontrol et!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Bağlantı kopyalandı!');
+    }
+}
+
+function deletePostFromModal(postId) {
+    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
+        fetch('/delete_post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showInPageNotification('Gönderi silindi', 'success');
+                closePostModal();
+                loadProfileStats(); // Sayfayı yenile
+            } else {
+                showInPageNotification('Hata: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showInPageNotification('Bir hata oluştu', 'error');
+        });
+    }
+}
+
 {% if not is_own_profile %}
 function loadProfileFriendshipStatus() {
     fetch('/get_friendship_data')
@@ -1579,7 +1616,7 @@ function showInPageNotification(message, type = 'success') {
             }
         </style>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', notification);
 
     setTimeout(() => {
@@ -1824,7 +1861,7 @@ function toggleBlockUser() {
     const confirmMessage = isUserBlocked ? 
         `${profileUser} kullanıcısının engelini kaldırmak istediğinizden emin misiniz?` :
         `${profileUser} kullanıcısını engellemek istediğinizden emin misiniz?`;
-    
+
     showBlockConfirmModal(confirmMessage, action);
 }
 
@@ -1832,7 +1869,7 @@ function showBlockConfirmModal(message, action) {
     const iconText = action === 'block' ? '🚫' : '✅';
     const buttonText = action === 'block' ? 'Engelle' : 'Engeli Kaldır';
     const buttonColor = action === 'block' ? 'linear-gradient(135deg, #ff4757, #ff3742)' : 'linear-gradient(135deg, #28a745, #20c997)';
-    
+
     const modal = `
         <div id="block-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
             <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;">
@@ -1861,7 +1898,7 @@ function closeBlockConfirmModal() {
 
 function confirmBlockAction(action) {
     closeBlockConfirmModal();
-    
+
     fetch(`/${action}_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1873,7 +1910,7 @@ function confirmBlockAction(action) {
             showInPageNotification(data.message, 'success');
             checkBlockStatus();
             document.getElementById('more-menu').style.display = 'none';
-            
+
             // If blocked, hide message button
             if (action === 'block') {
                 document.getElementById('message-btn').style.display = 'none';
