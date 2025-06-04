@@ -1445,7 +1445,7 @@ function sharePost(postId) {
 }
 
 function deletePostFromModal(postId) {
-    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
+    showDeleteConfirmModal('Bu gönderiyi silmek istediğinizden emin misiniz?', function() {
         fetch('/delete_post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1465,7 +1465,45 @@ function deletePostFromModal(postId) {
             console.error('Error:', error);
             showInPageNotification('Bir hata oluştu', 'error');
         });
+    });
+}
+
+function showDeleteConfirmModal(message, onConfirm) {
+    const modal = `
+        <div id="delete-confirm-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;">
+                <h3 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px; font-weight: 600;">⚠️ Silme Onayı</h3>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.4; font-size: 15px;">
+                    ${message}
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button onclick="confirmDelete()" style="background: linear-gradient(135deg, #ff4757, #ff3742); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
+                        🗑️ Sil
+                    </button>
+                    <button onclick="closeDeleteConfirmModal()" style="background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 120px; transition: all 0.2s;">
+                        İptal
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modal);
+    
+    // Store the callback function globally
+    window.currentDeleteCallback = onConfirm;
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('delete-confirm-modal');
+    if (modal) modal.remove();
+    window.currentDeleteCallback = null;
+}
+
+function confirmDelete() {
+    if (window.currentDeleteCallback) {
+        window.currentDeleteCallback();
     }
+    closeDeleteConfirmModal();
 }
 
 {% if not is_own_profile %}
