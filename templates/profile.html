@@ -1213,6 +1213,14 @@
 .fullscreen-close-btn:hover {
     background: rgba(255, 255, 255, 0.2);
 }
+.fullscreen-image, .fullscreen-video {
+    max-width: 95vw;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    object-fit: contain;
+}
 </style>
 
 <div class="fullscreen-container" id="fullscreen-post">
@@ -1909,8 +1917,8 @@ function closeNotification(notificationId) {
     const notif = document.getElementById(notificationId);
     if (notif) {
         notif.style.animation = 'slideOutToTop 0.3s ease';
-        setTimeout(() => notif.remove(), 300);
-    }
+        setTimeout(() => notif.remove(), 300);        }
+    }, 300);
 }
 
 function cancelFriendRequest(username) {
