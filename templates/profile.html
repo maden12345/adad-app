@@ -1314,6 +1314,11 @@ function showPostModal(post, postData) {
                     <button class="post-action-btn" onclick="sharePost(${post.id})">
                         📤
                     </button>
+                    ${post.username === currentUser ? `
+                        <button class="post-action-btn" onclick="deletePostFromModal(${post.id})" style="color: #ff4757;">
+                            🗑️
+                        </button>
+                    ` : ''}
                 </div>
 
                 <div class="post-stats">
